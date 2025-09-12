@@ -12,21 +12,25 @@ import { useCart } from "@/lib/cart-context"
 import Link from "next/link"
 
 export default function CartPage() {
-  const { state, dispatch } = useCart()
+  const { items, total, itemCount, addItem, removeItem: removeItemFromCart, updateQuantity: updateQuantityInCart, clearCart } = useCart()
+
+  if (!items) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">جاري تحميل السلة...</p>
+      </div>
+    )
+  }
 
   const updateQuantity = (id: string, quantity: number) => {
-    dispatch({ type: "UPDATE_QUANTITY", payload: { id, quantity } })
+    updateQuantityInCart(id, quantity)
   }
 
   const removeItem = (id: string) => {
-    dispatch({ type: "REMOVE_ITEM", payload: id })
+    removeItemFromCart(id)
   }
 
-  const clearCart = () => {
-    dispatch({ type: "CLEAR_CART" })
-  }
-
-  if (state.items.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
@@ -74,7 +78,8 @@ export default function CartPage() {
               className="text-center"
             >
               <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                <span className="text-brand-yellow">سلة</span> <span className="text-brand-blue">التسوق</span>
+                <span className="text-brand-yellow">سلة</span>{" "}
+                <span className="text-brand-blue">التسوق</span>
               </h1>
               <p className="text-xl text-muted-foreground">راجع منتجاتك المختارة واكمل عملية الشراء</p>
             </motion.div>
@@ -93,7 +98,9 @@ export default function CartPage() {
                   transition={{ duration: 0.6 }}
                 >
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-foreground">المنتجات ({state.itemCount})</h2>
+                    <h2 className="text-2xl font-bold text-foreground">
+                      المنتجات ({itemCount})
+                    </h2>
                     <Button
                       variant="outline"
                       size="sm"
@@ -106,7 +113,7 @@ export default function CartPage() {
                   </div>
 
                   <div className="space-y-4">
-                    {state.items.map((item, index) => (
+                    {items.map((item, index) => (
                       <motion.div
                         key={item.id}
                         initial={{ opacity: 0, y: 20 }}
@@ -136,12 +143,13 @@ export default function CartPage() {
                                     <h3 className="font-bold text-lg mb-2 text-foreground leading-tight">
                                       {item.title}
                                     </h3>
-                                    <p className="text-muted-foreground text-sm leading-relaxed">{item.description}</p>
+                                    <p className="text-muted-foreground text-sm leading-relaxed">
+                                      {item.description}
+                                    </p>
                                   </div>
 
                                   {/* Quantity and Price Controls */}
                                   <div className="flex flex-col sm:items-end space-y-4">
-                                    {/* Quantity Controls */}
                                     <div className="flex items-center space-x-2 space-x-reverse">
                                       <Button
                                         variant="outline"
@@ -163,7 +171,6 @@ export default function CartPage() {
                                       </Button>
                                     </div>
 
-                                    {/* Price */}
                                     <div className="text-left sm:text-right">
                                       <div className="text-2xl font-bold text-primary">
                                         {(item.price * item.quantity).toLocaleString()} ر.س
@@ -175,7 +182,6 @@ export default function CartPage() {
                                       )}
                                     </div>
 
-                                    {/* Remove Button */}
                                     <Button
                                       variant="ghost"
                                       size="sm"
@@ -210,33 +216,31 @@ export default function CartPage() {
                       <CardTitle className="text-xl font-bold text-foreground">ملخص الطلب</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {/* Items Summary */}
                       <div className="space-y-2">
-                        {state.items.map((item) => (
+                        {items.map((item) => (
                           <div key={item.id} className="flex justify-between text-sm">
                             <span className="text-muted-foreground">
                               {item.title} × {item.quantity}
                             </span>
-                            <span className="font-medium">{(item.price * item.quantity).toLocaleString()} ر.س</span>
+                            <span className="font-medium">
+                              {(item.price * item.quantity).toLocaleString()} ر.س
+                            </span>
                           </div>
                         ))}
                       </div>
 
                       <Separator />
 
-                      {/* Subtotal */}
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">المجموع الفرعي</span>
-                        <span className="font-semibold">{state.total.toLocaleString()} ر.س</span>
+                        <span className="font-semibold">{total.toLocaleString()} ر.س</span>
                       </div>
 
-                      {/* Tax */}
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">ضريبة القيمة المضافة (15%)</span>
-                        <span className="font-semibold">{(state.total * 0.15).toLocaleString()} ر.س</span>
+                        <span className="font-semibold">{(total * 0.15).toLocaleString()} ر.س</span>
                       </div>
 
-                      {/* Shipping */}
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">الشحن</span>
                         <span className="font-semibold text-green-600">مجاني</span>
@@ -244,13 +248,13 @@ export default function CartPage() {
 
                       <Separator />
 
-                      {/* Total */}
                       <div className="flex justify-between text-lg">
                         <span className="font-bold text-foreground">المجموع الكلي</span>
-                        <span className="font-bold text-primary">{(state.total * 1.15).toLocaleString()} ر.س</span>
+                        <span className="font-bold text-primary">
+                          {(total * 1.15).toLocaleString()} ر.س
+                        </span>
                       </div>
 
-                      {/* Checkout Button */}
                       <div className="pt-4">
                         <Link href="/checkout">
                           <Button size="lg" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -260,14 +264,12 @@ export default function CartPage() {
                         </Link>
                       </div>
 
-                      {/* Continue Shopping */}
                       <Link href="/products">
                         <Button variant="outline" size="lg" className="w-full bg-transparent">
                           متابعة التسوق
                         </Button>
                       </Link>
 
-                      {/* Security Badge */}
                       <div className="pt-4 text-center">
                         <div className="flex items-center justify-center space-x-2 space-x-reverse text-sm text-muted-foreground">
                           <div className="w-4 h-4 bg-green-500 rounded-full"></div>

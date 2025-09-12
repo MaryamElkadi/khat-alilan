@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 
-const products = [
+const initialProducts = [
   {
     id: "logo-design-package",
     title: "باقة تصميم الشعار الاحترافية",
@@ -21,61 +21,43 @@ const products = [
     status: "نشط",
     sales: 45,
   },
-  {
-    id: "social-media-campaign",
-    title: "حملة إعلانية شاملة",
-    description: "حملة إعلانية متكاملة على وسائل التواصل الاجتماعي لمدة شهر",
-    price: 2500,
-    image: "/social-media-advertising.png",
-    category: "إعلانات وسائل التواصل",
-    featured: true,
-    status: "نشط",
-    sales: 32,
-  },
-  {
-    id: "website-design",
-    title: "تصميم موقع ويب متجاوب",
-    description: "موقع ويب حديث ومتجاوب مع لوحة تحكم إدارية",
-    price: 5000,
-    image: "/responsive-website-design.png",
-    category: "تصميم مواقع ويب",
-    featured: true,
-    status: "نشط",
-    sales: 18,
-  },
-  {
-    id: "branding-package",
-    title: "باقة الهوية التجارية الكاملة",
-    description: "هوية تجارية شاملة تتضمن الشعار والألوان والخطوط",
-    price: 3500,
-    image: "/complete-branding-package.jpg",
-    category: "تصميم جرافيك",
-    featured: false,
-    status: "نشط",
-    sales: 28,
-  },
-  {
-    id: "print-materials",
-    title: "مواد طباعية متنوعة",
-    description: "تصميم وطباعة البروشورات والكتالوجات والبطاقات",
-    price: 800,
-    image: "/print-materials-brochures-catalogs.jpg",
-    category: "طباعة ونشر",
-    featured: false,
-    status: "مسودة",
-    sales: 12,
-  },
+  // باقي المنتجات...
 ]
 
 export default function ProductsManagement() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [products, setProducts] = useState(initialProducts)
   const router = useRouter()
 
   const filteredProducts = products.filter(
     (product) =>
       product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.category.toLowerCase().includes(searchTerm.toLowerCase()),
+      product.category.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // حذف المنتج
+  const handleDelete = (id: string) => {
+    if (confirm("هل أنت متأكد من حذف هذا المنتج؟")) {
+      setProducts(products.filter((p) => p.id !== id))
+    }
+  }
+
+  // عرض المنتج
+  const handleView = (id: string) => {
+    router.push(`/admin/products/${id}`)
+  }
+
+  // تعديل المنتج
+  const handleEdit = (id: string) => {
+    router.push(`/admin/products/edit/${id}`)
+  }
+
+  // تحديث المنتج بعد التعديل
+  const updateProduct = (id, updatedData) => {
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...updatedData } : p))
+    )
+  }
 
   return (
     <div className="p-8">
@@ -85,13 +67,16 @@ export default function ProductsManagement() {
           <h1 className="text-3xl font-bold text-brand-blue">إدارة المنتجات</h1>
           <p className="text-muted-foreground mt-1">إدارة وتحرير منتجات وخدمات الشركة</p>
         </div>
-        <Button className="bg-brand-blue hover:bg-brand-blue/90" onClick={() => router.push("/admin/products/new")}>
+        <Button
+          className="bg-brand-blue hover:bg-brand-blue/90"
+          onClick={() => router.push("/admin/products/new")}
+        >
           <Plus className="h-4 w-4 ml-2" />
           إضافة منتج جديد
         </Button>
       </div>
 
-      {/* Search and Filters */}
+      {/* Search */}
       <Card className="mb-6">
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
@@ -161,15 +146,30 @@ export default function ProductsManagement() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1 bg-transparent">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 bg-transparent"
+                    onClick={() => handleView(product.id)}
+                  >
                     <Eye className="h-4 w-4 ml-1" />
                     عرض
                   </Button>
-                  <Button size="sm" variant="outline" className="flex-1 bg-transparent">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 bg-transparent"
+                    onClick={() => handleEdit(product.id)}
+                  >
                     <Edit className="h-4 w-4 ml-1" />
                     تحرير
                   </Button>
-                  <Button size="sm" variant="outline" className="text-red-500 hover:text-red-600 bg-transparent">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-500 hover:text-red-600 bg-transparent"
+                    onClick={() => handleDelete(product.id)}
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
