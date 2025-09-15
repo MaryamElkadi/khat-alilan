@@ -16,7 +16,9 @@ const sidebarItems = [
   { icon: ShoppingCart, label: "الطلبات", href: "/admin/orders" },
   { icon: Users, label: "العملاء", href: "/admin/customers" },
   { icon: BarChart3, label: "التقارير", href: "/admin/reports" },
-  { icon: FileText, label: "المحتوى", href: "/admin/content" },
+  { icon: FileText, label: "الخدمات", href: "/admin/content" },
+  { icon: FileText, label: "أعمالنا", href: "/admin/works" },
+   { icon: FileText, label: "التواصل", href: "/admin/contact" },
   { icon: Settings, label: "الإعدادات", href: "/admin/settings" },
 ]
 

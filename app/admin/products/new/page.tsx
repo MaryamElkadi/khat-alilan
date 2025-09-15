@@ -57,53 +57,50 @@ export default function NewProduct() {
     handleFiles(e.dataTransfer.files);
   };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  let imagePath = "/placeholder.svg"; // default
+    let imagePath = "/placeholder.svg"; // default
 
-  // Upload first image if selected
-  if (files[0]) {
-    const formDataFile = new FormData();
-    formDataFile.append("file", files[0]);
+    // Upload first image if selected
+    if (files[0]) {
+      const formDataFile = new FormData();
+      formDataFile.append("file", files[0]);
 
-    const uploadRes = await fetch("/api/upload", {
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formDataFile,
+      });
+
+      const uploadData = await uploadRes.json();
+      if (uploadRes.ok) {
+        imagePath = uploadData.path; // ✅ this will be "/uploads/filename.png"
+      }
+    }
+
+    const newProduct = {
+      title: formData.title,
+      description: formData.description,
+      price: Number(formData.price),
+      category: formData.category,
+      featured: formData.featured,
+      status: formData.status,
+      sales: 0,
+      image: imagePath, // ✅ real path
+    };
+
+    const res = await fetch("/api/products", {
       method: "POST",
-      body: formDataFile,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newProduct),
     });
 
-    const uploadData = await uploadRes.json();
-    if (uploadRes.ok) {
-      imagePath = uploadData.path; // ✅ this will be "/uploads/filename.png"
+    if (res.ok) {
+      router.push("/admin/products");
+    } else {
+      alert("فشل في الحفظ");
     }
-  }
-
- 
-  const newProduct = {
-    title: formData.title,
-    description: formData.description,
-    price: Number(formData.price),
-    category: formData.category,
-    featured: formData.featured,
-    status: formData.status,
-    sales: 0,
-    image: imagePath, // ✅ real path
   };
-
-  const res = await fetch("/api/products", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(newProduct),
-  });
-
-  if (res.ok) {
-    router.push("/admin/products");
-  } else {
-    alert("فشل في الحفظ");
-  }
-};
-};
-
 
   return (
     <div className="p-8">
