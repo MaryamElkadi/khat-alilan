@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { Plus, Search, Edit, Trash2, Eye, Package, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -8,26 +8,31 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
-
-const initialProducts = [
-  {
-    id: "logo-design-package",
-    title: "باقة تصميم الشعار الاحترافية",
-    description: "تصميم شعار احترافي مع دليل الهوية البصرية الكامل",
-    price: 1500,
-    image: "/professional-logo-design-package.jpg",
-    category: "تصميم جرافيك",
-    featured: true,
-    status: "نشط",
-    sales: 45,
-  },
-  // باقي المنتجات...
-]
+import { useProducts } from "@/app/admin/context/products"
 
 export default function ProductsManagement() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [products, setProducts] = useState(initialProducts)
+  const { products, setProducts } = useProducts()
   const router = useRouter()
+
+  // ✅ Fetch products from API when component mounts
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch("/api/products")
+        if (res.ok) {
+          const data = await res.json()
+          setProducts(data)
+        } else {
+          console.error("فشل في جلب المنتجات")
+        }
+      } catch (error) {
+        console.error("خطأ في الاتصال", error)
+      }
+    }
+
+    fetchProducts()
+  }, [setProducts])
 
   const filteredProducts = products.filter(
     (product) =>
@@ -36,28 +41,24 @@ export default function ProductsManagement() {
   )
 
   // حذف المنتج
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("هل أنت متأكد من حذف هذا المنتج؟")) {
-      setProducts(products.filter((p) => p.id !== id))
+      // حذف من قاعدة البيانات
+      await fetch(`/api/products/${id}`, { method: "DELETE" })
+      // تحديث الحالة
+      setProducts(products.filter((p) => p._id !== id))
     }
   }
 
-  // عرض المنتج
   const handleView = (id: string) => {
     router.push(`/admin/products/${id}`)
   }
 
-  // تعديل المنتج
   const handleEdit = (id: string) => {
     router.push(`/admin/products/edit/${id}`)
   }
 
-  // تحديث المنتج بعد التعديل
-  const updateProduct = (id, updatedData) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updatedData } : p))
-    )
-  }
+
 
   return (
     <div className="p-8">
@@ -146,32 +147,33 @@ export default function ProductsManagement() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 bg-transparent"
-                    onClick={() => handleView(product.id)}
-                  >
-                    <Eye className="h-4 w-4 ml-1" />
-                    عرض
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 bg-transparent"
-                    onClick={() => handleEdit(product.id)}
-                  >
-                    <Edit className="h-4 w-4 ml-1" />
-                    تحرير
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-red-500 hover:text-red-600 bg-transparent"
-                    onClick={() => handleDelete(product.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                 <Button
+  size="sm"
+  variant="outline"
+  className="flex-1 bg-transparent"
+  onClick={() => handleView(product._id)}
+>
+  <Eye className="h-4 w-4 ml-1" />
+  عرض
+</Button>
+<Button
+  size="sm"
+  variant="outline"
+  className="flex-1 bg-transparent"
+  onClick={() => handleEdit(product._id)}
+>
+  <Edit className="h-4 w-4 ml-1" />
+  تحرير
+</Button>
+<Button
+  size="sm"
+  variant="outline"
+  className="text-red-500 hover:text-red-600 bg-transparent"
+  onClick={() => handleDelete(product._id)}
+>
+  <Trash2 className="h-4 w-4" />
+</Button>
+
                 </div>
               </CardContent>
             </Card>

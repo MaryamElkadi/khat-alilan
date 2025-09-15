@@ -11,8 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { useProducts } from "@/app/admin/context/products"
 
-
-
 const categories = [
   "تصميم جرافيك",
   "إعلانات وسائل التواصل",
@@ -32,17 +30,13 @@ interface FormData {
   status: string
 }
 
-interface EditProductPageProps {
-  products: any[]
-  updateProduct: (id: string, data: FormData) => void
-}
-
 export default function EditProductPage() {
-  const { products, setProducts } = useProducts()
+  const [images, setImages] = useState<File[]>([])
+  const router = useRouter()
   const params = useParams()
-  const id = params?.id
-  const product = products.find((p) => p.id === id)
-
+  const id = params?.id as string
+  const { products, setProducts } = useProducts()
+const product = products.find((p) => p._id === id)
 
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState<FormData>({
@@ -54,12 +48,40 @@ export default function EditProductPage() {
     status: "نشط",
   })
 
-  useEffect(() => {
-    if (product) {
-      setFormData(product)
+useEffect(() => {
+  const fetchProduct = async () => {
+    try {
+      const res = await fetch(`/api/products/${id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setFormData({
+          title: data.title || "",
+          description: data.description || "",
+          price: data.price?.toString() || "",
+          category: data.category || "",
+          featured: data.featured || false,
+          status: data.status || "نشط",
+        })
+      }
+    } catch (error) {
+      console.error("خطأ في تحميل المنتج", error)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
-  }, [product])
+  }
+
+  if (id) fetchProduct()
+}, [id])
+// Function to handle file selection
+const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (!e.target.files) return
+  setImages(Array.from(e.target.files)) // store selected files
+}
+
+// Function to trigger the hidden file input
+const triggerFileInput = () => {
+  document.getElementById("product-image-input")?.click()
+}
 
   const handleInputChange = (field: keyof FormData, value: string | boolean) => {
     setFormData((prev) => ({
@@ -68,23 +90,42 @@ export default function EditProductPage() {
     }))
   }
 
-if (!id || !product) {
-  return <div className="p-8">المنتج غير موجود</div>
-}
+const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  if (!id) return;
 
-const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault()
-  if (!id || !product) return
-  updateProduct(id, formData)
-  alert("تم تعديل المنتج بنجاح ✅")
-  router.push("/admin/products")
-}
+  try {
+    const form = new FormData();
+    form.append("title", formData.title);
+    form.append("description", formData.description);
+    form.append("price", formData.price);
+    form.append("category", formData.category);
+    form.append("featured", String(formData.featured));
+    form.append("status", formData.status);
+
+    // append images if selected
+    images.forEach((file) => form.append("images", file));
+
+    const res = await fetch(`/api/products/${id}`, {
+      method: "PUT",
+      body: form, // send FormData, NOT JSON
+    });
+
+    if (!res.ok) throw new Error("Failed to update product");
+
+    alert("تم تعديل المنتج وحفظه في قاعدة البيانات ✅");
+    router.push("/admin/products");
+  } catch (error) {
+    console.error(error);
+    alert("حدث خطأ أثناء تعديل المنتج ❌");
+  }
+};
 
 
 
   if (loading) return <div className="p-8">جاري تحميل بيانات المنتج...</div>
   if (!product) return <div className="p-8">المنتج غير موجود</div>
-}
+
   return (
     <div className="p-8">
       {/* Header */}
@@ -163,19 +204,45 @@ const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
 
             {/* Image Upload */}
             <Card>
-              <CardHeader>
-                <CardTitle>صور المنتج</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
-                  <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground mb-4">اسحب الصور هنا أو انقر للتحديد</p>
-                  <Button type="button" variant="outline">
-                    اختيار الصور
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+  <CardHeader>
+    <CardTitle>صور المنتج</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div
+      className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer"
+      onClick={triggerFileInput} // clicking anywhere opens file selector
+    >
+      <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+      <p className="text-muted-foreground mb-4">اسحب الصور هنا أو انقر للتحديد</p>
+      <Button type="button" variant="outline" onClick={triggerFileInput}>
+        اختيار الصور
+      </Button>
+
+      {/* Preview selected images */}
+      {images.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-4 justify-center">
+          {images.map((file, idx) => (
+            <img
+              key={idx}
+              src={URL.createObjectURL(file)}
+              alt={file.name}
+              className="w-24 h-24 object-cover rounded-md border"
+            />
+          ))}
+        </div>
+      )}
+      <input
+        type="file"
+        id="product-image-input"
+        className="hidden"
+        accept="image/*"
+        multiple
+        onChange={handleImageChange}
+      />
+    </div>
+  </CardContent>
+</Card>
+
           </div>
 
           {/* Sidebar */}

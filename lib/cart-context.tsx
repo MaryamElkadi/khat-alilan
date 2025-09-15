@@ -1,7 +1,6 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useReducer, type ReactNode } from "react"
+import { createContext, useContext, useReducer, useEffect, type ReactNode } from "react"
 import type { CartItem, Product } from "./types"
 
 interface CartState {
@@ -11,6 +10,7 @@ interface CartState {
 }
 
 type CartAction =
+  | { type: "SET_CART"; payload: CartItem[] }
   | { type: "ADD_ITEM"; payload: Product }
   | { type: "REMOVE_ITEM"; payload: string }
   | { type: "UPDATE_QUANTITY"; payload: { id: string; quantity: number } }
@@ -23,22 +23,24 @@ const CartContext = createContext<{
 
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
-    case "ADD_ITEM": {
-      const existingItem = state.items.find((item) => item.id === action.payload.id)
+    case "SET_CART": {
+      const total = action.payload.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      const itemCount = action.payload.reduce((sum, item) => sum + item.quantity, 0)
+      return { items: action.payload, total, itemCount }
+    }
 
+    case "ADD_ITEM": {
+      const existingItem = state.items.find((item) => item._id === action.payload._id)
+
+      let newItems
       if (existingItem) {
-        const updatedItems = state.items.map((item) =>
-          item.id === action.payload.id ? { ...item, quantity: item.quantity + 1 } : item,
+        newItems = state.items.map((item) =>
+          item._id === action.payload._id ? { ...item, quantity: item.quantity + 1 } : item,
         )
-        return {
-          ...state,
-          items: updatedItems,
-          total: updatedItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
-          itemCount: updatedItems.reduce((sum, item) => sum + item.quantity, 0),
-        }
+      } else {
+        newItems = [...state.items, { ...action.payload, quantity: 1 }]
       }
 
-      const newItems = [...state.items, { ...action.payload, quantity: 1 }]
       return {
         ...state,
         items: newItems,
@@ -48,7 +50,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     }
 
     case "REMOVE_ITEM": {
-      const newItems = state.items.filter((item) => item.id !== action.payload)
+      const newItems = state.items.filter((item) => item._id !== action.payload)
       return {
         ...state,
         items: newItems,
@@ -60,7 +62,9 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     case "UPDATE_QUANTITY": {
       const updatedItems = state.items
         .map((item) =>
-          item.id === action.payload.id ? { ...item, quantity: Math.max(0, action.payload.quantity) } : item,
+          item._id === action.payload.id
+            ? { ...item, quantity: Math.max(0, action.payload.quantity) }
+            : item,
         )
         .filter((item) => item.quantity > 0)
 
@@ -73,11 +77,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     }
 
     case "CLEAR_CART":
-      return {
-        items: [],
-        total: 0,
-        itemCount: 0,
-      }
+      return { items: [], total: 0, itemCount: 0 }
 
     default:
       return state
@@ -85,20 +85,41 @@ function cartReducer(state: CartState, action: CartAction): CartState {
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(cartReducer, {
-    items: [],
-    total: 0,
-    itemCount: 0,
-  })
+  const [state, dispatch] = useReducer(cartReducer, { items: [], total: 0, itemCount: 0 })
+
+  // Load cart from DB
+  useEffect(() => {
+    const fetchCart = async () => {
+      try {
+        const res = await fetch("/api/cart")
+        if (res.ok) {
+          const data = await res.json()
+          dispatch({ type: "SET_CART", payload: data })
+        }
+      } catch (err) {
+        console.error("Failed to load cart", err)
+      }
+    }
+    fetchCart()
+  }, [])
+
+  // Sync cart when state changes
+  useEffect(() => {
+    if (state.items.length >= 0) {
+      fetch("/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state.items),
+      }).catch((err) => console.error("Failed to sync cart", err))
+    }
+  }, [state.items])
 
   return <CartContext.Provider value={{ state, dispatch }}>{children}</CartContext.Provider>
 }
 
 export function useCart() {
   const context = useContext(CartContext)
-  if (!context) {
-    throw new Error("useCart must be used within a CartProvider")
-  }
+  if (!context) throw new Error("useCart must be used within a CartProvider")
 
   return {
     items: context.state.items,

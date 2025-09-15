@@ -54,14 +54,33 @@ export default function ProfilePage() {
     )
   }
 
-  const handleSave = () => {
-    updateProfile(formData)
-    setIsEditing(false)
+ const handleSave = async () => {
+  try {
+    const res = await fetch(`/api/users/${state.user._id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+
+    if (!res.ok) throw new Error("Failed to update profile");
+
+    const updatedUser = await res.json();
+    updateProfile(updatedUser); // keep your auth-context in sync
+    setIsEditing(false);
+
     toast({
       title: "تم حفظ التغييرات",
       description: "تم تحديث الملف الشخصي بنجاح",
-    })
+    });
+  } catch (err) {
+    toast({
+      title: "خطأ",
+      description: "تعذر تحديث الملف الشخصي",
+      variant: "destructive",
+    });
   }
+};
+
 
   const handleCancel = () => {
     setFormData({
@@ -74,7 +93,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+
 
       <main className="pt-8">
         {/* Header */}

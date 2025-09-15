@@ -1,16 +1,16 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState } from "react"
-import { Save, ArrowRight, Upload } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
-import { useRouter } from "next/navigation"
+import type React from "react";
+import { useState, useRef } from "react";
+import { Save, ArrowRight, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { useRouter } from "next/navigation";
+import { useProducts } from "@/app/admin/context/products";
 
 const categories = [
   "تصميم جرافيك",
@@ -20,10 +20,14 @@ const categories = [
   "التصوير الفوتوغرافي",
   "الهوية التجارية",
   "التسويق الرقمي",
-]
+];
 
 export default function NewProduct() {
-  const router = useRouter()
+  const router = useRouter();
+  const { products, setProducts } = useProducts();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -31,21 +35,75 @@ export default function NewProduct() {
     category: "",
     featured: false,
     status: "مسودة",
-  })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Here you would typically save to a database
-    console.log("Product data:", formData)
-    router.push("/admin/products")
-  }
+  });
 
   const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleFiles = (selectedFiles: FileList | null) => {
+    if (!selectedFiles) return;
+    setFiles((prev) => [...prev, ...Array.from(selectedFiles)]);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleFiles(e.dataTransfer.files);
+  };
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  let imagePath = "/placeholder.svg"; // default
+
+  // Upload first image if selected
+  if (files[0]) {
+    const formDataFile = new FormData();
+    formDataFile.append("file", files[0]);
+
+    const uploadRes = await fetch("/api/upload", {
+      method: "POST",
+      body: formDataFile,
+    });
+
+    const uploadData = await uploadRes.json();
+    if (uploadRes.ok) {
+      imagePath = uploadData.path; // ✅ this will be "/uploads/filename.png"
+    }
   }
+
+ 
+  const newProduct = {
+    title: formData.title,
+    description: formData.description,
+    price: Number(formData.price),
+    category: formData.category,
+    featured: formData.featured,
+    status: formData.status,
+    sales: 0,
+    image: imagePath, // ✅ real path
+  };
+
+  const res = await fetch("/api/products", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(newProduct),
+  });
+
+  if (res.ok) {
+    router.push("/admin/products");
+  } else {
+    alert("فشل في الحفظ");
+  }
+};
+};
+
 
   return (
     <div className="p-8">
@@ -64,6 +122,7 @@ export default function NewProduct() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Form */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Basic Info */}
             <Card>
               <CardHeader>
                 <CardTitle>معلومات المنتج الأساسية</CardTitle>
@@ -79,7 +138,6 @@ export default function NewProduct() {
                     required
                   />
                 </div>
-
                 <div>
                   <Label htmlFor="description">وصف المنتج *</Label>
                   <Textarea
@@ -91,7 +149,6 @@ export default function NewProduct() {
                     required
                   />
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="price">السعر (ر.س) *</Label>
@@ -104,7 +161,6 @@ export default function NewProduct() {
                       required
                     />
                   </div>
-
                   <div>
                     <Label htmlFor="category">الفئة *</Label>
                     <select
@@ -132,12 +188,39 @@ export default function NewProduct() {
                 <CardTitle>صور المنتج</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
+                <div
+                  className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer"
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  onClick={() => inputRef.current?.click()}
+                >
                   <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground mb-4">اسحب الصور هنا أو انقر للتحديد</p>
-                  <Button type="button" variant="outline">
+                  <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>
                     اختيار الصور
                   </Button>
+                  <input
+                    type="file"
+                    ref={inputRef}
+                    multiple
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleFiles(e.target.files)}
+                  />
+
+                  {/* Preview selected images */}
+                  {files.length > 0 && (
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      {files.map((file, idx) => (
+                        <img
+                          key={idx}
+                          src={URL.createObjectURL(file)}
+                          alt={file.name}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -145,6 +228,7 @@ export default function NewProduct() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Publishing Settings */}
             <Card>
               <CardHeader>
                 <CardTitle>إعدادات النشر</CardTitle>
@@ -158,7 +242,6 @@ export default function NewProduct() {
                     onCheckedChange={(checked) => handleInputChange("featured", checked)}
                   />
                 </div>
-
                 <div>
                   <Label htmlFor="status">حالة المنتج</Label>
                   <select
@@ -175,6 +258,7 @@ export default function NewProduct() {
               </CardContent>
             </Card>
 
+            {/* Quick Preview */}
             <Card>
               <CardHeader>
                 <CardTitle>معاينة سريعة</CardTitle>
@@ -182,7 +266,15 @@ export default function NewProduct() {
               <CardContent>
                 <div className="space-y-3">
                   <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-                    <span className="text-muted-foreground text-sm">صورة المنتج</span>
+                    {files[0] ? (
+                      <img
+                        src={URL.createObjectURL(files[0])}
+                        alt="معاينة"
+                        className="object-cover w-full h-full rounded-lg"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground text-sm">صورة المنتج</span>
+                    )}
                   </div>
                   <h3 className="font-semibold">{formData.title || "اسم المنتج"}</h3>
                   <p className="text-sm text-muted-foreground line-clamp-2">
@@ -209,5 +301,5 @@ export default function NewProduct() {
         </div>
       </form>
     </div>
-  )
+  );
 }

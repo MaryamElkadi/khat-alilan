@@ -119,6 +119,18 @@ export function AdminLoginForm() {
               >
                 {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
               </Button>
+              <div className="mt-6 text-center">
+  <p className="text-sm text-muted-foreground">
+    ليس لديك حساب؟{" "}
+    <button
+      onClick={() => router.push("/register")}
+      className="text-brand-blue font-semibold hover:underline"
+    >
+      سجل الآن
+    </button>
+  </p>
+</div>
+
             </form>
 
             <div className="mt-6 p-4 bg-muted/50 rounded-lg">

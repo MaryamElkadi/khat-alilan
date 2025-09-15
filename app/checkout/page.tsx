@@ -54,14 +54,41 @@ export default function CheckoutPage() {
     }
   }
 
-  const handlePlaceOrder = async () => {
-    setIsProcessing(true)
-    // Simulate order processing
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setIsProcessing(false)
+const handlePlaceOrder = async () => {
+  setIsProcessing(true)
+
+  try {
+    const res = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user: user?._id, // from auth context
+        items: items.map((item) => ({
+          product: item._id, // ✅ real MongoDB _id
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        shippingInfo,
+        paymentMethod,
+        total: finalTotal,
+      }),
+    })
+
+    if (!res.ok) throw new Error("Failed to place order")
+
+    const data = await res.json()
+    console.log("Order saved:", data)
+
     setOrderComplete(true)
     clearCart()
+  } catch (error) {
+    console.error("Checkout error:", error)
+    alert("حدث خطأ أثناء إتمام الطلب")
+  } finally {
+    setIsProcessing(false)
   }
+}
 
   if (items.length === 0 && !orderComplete) {
     return (

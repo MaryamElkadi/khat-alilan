@@ -49,28 +49,28 @@ export default function ContactPage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsSubmitting(true);
 
-    // Simulate form submission
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+  try {
+    const res = await fetch("/api/contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
 
-    setIsSubmitting(false)
-    setIsSubmitted(true)
+    if (!res.ok) throw new Error("فشل الإرسال");
 
-    // Reset form after 3 seconds
-    setTimeout(() => {
-      setIsSubmitted(false)
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        subject: "",
-        message: "",
-      })
-    }, 3000)
+    setIsSubmitted(true);
+    setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
+  } catch (error) {
+    alert("حصل خطأ أثناء الإرسال");
+  } finally {
+    setIsSubmitting(false);
   }
+};
+
 
   return (
     <div className="min-h-screen bg-background pt-20">
