@@ -43,9 +43,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const featured = formData.get("featured") === "true";
     const status = formData.get("status") as string;
 
-    const sizeOptions = JSON.parse(formData.get("sizeOptions") as string || "[]");
-    const sideOptions = JSON.parse(formData.get("sideOptions") as string || "[]");
-    const materialOptions = JSON.parse(formData.get("materialOptions") as string || "[]");
+const sizeOptions = parseOptions(formData.get("sizeOptions") as string);
+const sideOptions = parseOptions(formData.get("sideOptions") as string);
+const materialOptions = parseOptions(formData.get("materialOptions") as string);
     const quantityOptions = JSON.parse(formData.get("quantityOptions") as string || "[]");
 
     const images: string[] = [];

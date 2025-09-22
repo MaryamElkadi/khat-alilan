@@ -17,8 +17,6 @@ export async function GET(req: Request) {
   return NextResponse.json(cart || { items: [], total: 0 });
 }
 
-
-
 // POST /api/cart
 export async function POST(req: Request) {
   try {

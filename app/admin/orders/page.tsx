@@ -15,12 +15,23 @@ export default function OrdersManagement() {
 const [editOrder, setEditOrder] = useState<any | null>(null);
 
   const [showForm, setShowForm] = useState(false);
-  const [newOrder, setNewOrder] = useState({
-    customer: "",
-    total: 0,
-    items: 1,
-    status: "قيد التنفيذ",
-  });
+const [newOrder, setNewOrder] = useState({
+  customer: "",
+  phone: "",
+  email: "",
+  notes: "",
+  paymentMethod: "cash", // أو أي قيمة افتراضية
+  items: [
+    {
+      product: "",        // ObjectId من المنتج/الخدمة
+      modelType: "Service", // أو "Product"
+      price: 0,
+      quantity: 1,
+    },
+  ],
+  status: "قيد التنفيذ",
+})
+
 
   // جلب الطلبات من الـ API
   useEffect(() => {
@@ -111,6 +122,19 @@ const [editOrder, setEditOrder] = useState<any | null>(null);
                 </Badge>
               </CardHeader>
               <CardContent>
+                  {Array.isArray(order.items) && order.items.length > 0 && (
+    <div className="mb-2">
+      <p className="text-sm font-semibold">الخدمات:</p>
+      <ul className="list-disc list-inside text-sm">
+        {order.items.map((item: any, i: number) => (
+          <li key={i}>
+            {item.product?.name || "خدمة بدون اسم"} × {item.quantity}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+
                 <p className="text-sm mb-2">العميل: {order.customer}</p>
 <p className="text-sm mb-2">
   عدد المنتجات: {Array.isArray(order.items) ? order.items.length : order.items}
@@ -165,17 +189,17 @@ const [editOrder, setEditOrder] = useState<any | null>(null);
         </Card>
         <Card>
           <CardContent className="p-6 text-center">
-            <Package className="h-8 w-8 text-green-500 mx-auto mb-2" />
+            <Package className="h-8 w-8 text-green-500 mx-auto mb-2 " />
             <div className="text-2xl font-bold">
               {orders.filter((o) => o.status === "مكتمل").length}
             </div>
-            <div className="text-sm text-muted-foreground">مكتملة</div>
+            <div className="text-sm text-muted-foreground ">مكتملة</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-6 text-center">
             <div className="h-8 w-8 bg-red-500 rounded-full mx-auto mb-2"></div>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold ">
               {orders.filter((o) => o.status === "ملغي").length}
             </div>
             <div className="text-sm text-muted-foreground">ملغاة</div>
@@ -209,13 +233,13 @@ const [editOrder, setEditOrder] = useState<any | null>(null);
                 onChange={(e) => setNewOrder({ ...newOrder, items: Number(e.target.value) })}
               />
               <select
-                className="border rounded p-2 w-full"
+                className="border rounded p-2 w-full text-black"
                 value={newOrder.status}
                 onChange={(e) => setNewOrder({ ...newOrder, status: e.target.value })}
               >
-                <option value="قيد التنفيذ">قيد التنفيذ</option>
-                <option value="مكتمل">مكتمل</option>
-                <option value="ملغي">ملغي</option>
+                <option value="قيد التنفيذ" className='text-black'>قيد التنفيذ</option>
+                <option value="مكتمل" className = "text-black" >مكتمل</option>
+                <option value="ملغي" className="text-black">ملغي</option>
               </select>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setShowForm(false)}>
@@ -274,9 +298,9 @@ const [editOrder, setEditOrder] = useState<any | null>(null);
           value={editOrder.status}
           onChange={(e) => setEditOrder({ ...editOrder, status: e.target.value })}
         >
-          <option value="قيد التنفيذ">قيد التنفيذ</option>
-          <option value="مكتمل">مكتمل</option>
-          <option value="ملغي">ملغي</option>
+          <option value="قيد التنفيذ" className='text-black'>قيد التنفيذ</option>
+          <option value="مكتمل" className='text-black'>مكتمل</option>
+          <option value="ملغي" className='text-black'>ملغي</option>
         </select>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => setEditOrder(null)}>إلغاء</Button>

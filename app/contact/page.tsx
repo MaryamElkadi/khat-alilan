@@ -15,17 +15,17 @@ const contactInfo = [
   {
     icon: MapPin,
     title: "العنوان",
-    details: "الرياض، المملكة العربية السعودية\nحي الملك فهد، شارع الأمير محمد بن عبدالعزيز",
+    details: "الدمام حي فاطمة الزهراء",
   },
   {
     icon: Phone,
     title: "الهاتف",
-    details: "+966 11 123 4567\n+966 50 123 4567",
+    details: "+966 50350717\n+966 50 123 4567",
   },
   {
     icon: Mail,
     title: "البريد الإلكتروني",
-    details: "info@khat-alilan.com\nsupport@khat-alilan.com",
+    details: "promovisio.ad@gmail.com\nsupport@khat-alilan.com",
   },
   {
     icon: Clock,

@@ -78,15 +78,16 @@ export function Footer() {
               <div className="space-y-3">
                 <div className="flex items-center space-x-3 space-x-reverse text-sm">
                   <Phone className="h-4 w-4 text-primary" />
-                  <span>+966 50 123 4567</span>
+                  <span>+966503502717</span>
                 </div>
                 <div className="flex items-center space-x-3 space-x-reverse text-sm">
                   <Mail className="h-4 w-4 text-primary" />
-                  <span>info@khat-alilan.com</span>
-                </div>
+                  <span>promovision.ad@gmail.com</span>
+                </div>s
                 <div className="flex items-center space-x-3 space-x-reverse text-sm">
                   <MapPin className="h-4 w-4 text-primary" />
-                  <span>الرياض، المملكة العربية السعودية</span>
+                  <span>الدمام حي الشفاء فاطمة الزهراء</span>
+                  <span>البحرين</span>
                 </div>
               </div>
             </motion.div>
@@ -123,7 +124,7 @@ export function Footer() {
             ))}
           </div>
 
-          {/* Newsletter Section */}
+          {/* Newsletter Section
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -139,7 +140,7 @@ export function Footer() {
                 <Button className="bg-primary hover:bg-primary/90">اشتراك</Button>
               </div>
             </div>
-          </motion.div>
+                </motion.div> */}
         </div>
 
         <Separator />

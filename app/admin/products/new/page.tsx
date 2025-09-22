@@ -110,22 +110,26 @@ export default function NewProduct() {
 const [customSizes, setCustomSizes] = useState<string[]>([""]);
 const [customSides, setCustomSides] = useState<string[]>([""]);
 const [customMaterials, setCustomMaterials] = useState<string[]>([""]);
-const [sizeOptions, setSizeOptions] = useState<string[]>([
-  "A4",
-  "A3",
-  "A5",
+
+// Update state for options with prices
+const [sizeOptions, setSizeOptions] = useState<{name: string, priceAddition: string}[]>([
+  { name: "A4", priceAddition: "0" },
+  { name: "A3", priceAddition: "0" },
+  { name: "A5", priceAddition: "0" },
 ]);
 
-const [sideOptions, setSideOptions] = useState<string[]>([
-  "one side",
-  "two side",
+const [sideOptions, setSideOptions] = useState<{name: string, priceAddition: string}[]>([
+  { name: "وجه واحد", priceAddition: "0" },
+  { name: "وجهين", priceAddition: "0" },
 ]);
 
-const [materialOptions, setMaterialOptions] = useState<string[]>([
-  "ورق عادي",
-  "ورق لامع",
-  "بلاستيك",
+const [materialOptions, setMaterialOptions] = useState<{name: string, priceAddition: string}[]>([
+  { name: "ورق عادي", priceAddition: "0" },
+  { name: "ورق لامع", priceAddition: "0" },
+  { name: "بلاستيك", priceAddition: "0" },
 ]);
+
+
 const [formData, setFormData] = useState({
   title: "",
   description: "",
@@ -256,6 +260,46 @@ const removeQuantityRow = (index: number) => {
     e.stopPropagation();
     handleFiles(e.dataTransfer.files);
   };
+  const handleOptionChange = (
+  type: "size" | "side" | "material", 
+  index: number, 
+  field: "name" | "priceAddition", 
+  value: string
+) => {
+  if (type === "size") {
+    const newOptions = [...sizeOptions];
+    newOptions[index][field] = value;
+    setSizeOptions(newOptions);
+  } else if (type === "side") {
+    const newOptions = [...sideOptions];
+    newOptions[index][field] = value;
+    setSideOptions(newOptions);
+  } else if (type === "material") {
+    const newOptions = [...materialOptions];
+    newOptions[index][field] = value;
+    setMaterialOptions(newOptions);
+  }
+};
+
+// Update the option removal
+const removeOption = (type: "size" | "side" | "material", index: number) => {
+  if (type === "size") {
+    setSizeOptions(sizeOptions.filter((_, i) => i !== index));
+  } else if (type === "side") {
+    setSideOptions(sideOptions.filter((_, i) => i !== index));
+  } else if (type === "material") {
+    setMaterialOptions(materialOptions.filter((_, i) => i !== index));
+  }
+};
+
+// Update the option addition
+const addOption = (type: "size" | "side" | "material") => {
+  const newOption = { name: "", priceAddition: "0" };
+  if (type === "size") setSizeOptions([...sizeOptions, newOption]);
+  if (type === "side") setSideOptions([...sideOptions, newOption]);
+  if (type === "material") setMaterialOptions([...materialOptions, newOption]);
+};
+
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setUploading(true);
@@ -266,9 +310,32 @@ const handleSubmit = async (e: React.FormEvent) => {
   productFormData.append("description", formData.description); 
   productFormData.append("category", formData.category);
   productFormData.append("featured", String(formData.featured));
-productFormData.append("sizeOptions", JSON.stringify(sizeOptions.concat(customSizes)));
-productFormData.append("sideOptions", JSON.stringify(sideOptions.concat(customSides)));
-productFormData.append("materialOptions", JSON.stringify(materialOptions.concat(customMaterials)));
+
+    // Prepare options with price additions
+  const preparedSizeOptions = sizeOptions
+    .filter(opt => opt.name.trim() !== "")
+    .map(opt => ({
+      name: opt.name,
+      priceAddition: parseFloat(opt.priceAddition) || 0
+    }));
+
+  const preparedSideOptions = sideOptions
+    .filter(opt => opt.name.trim() !== "")
+    .map(opt => ({
+      name: opt.name,
+      priceAddition: parseFloat(opt.priceAddition) || 0
+    }));
+
+  const preparedMaterialOptions = materialOptions
+    .filter(opt => opt.name.trim() !== "")
+    .map(opt => ({
+      name: opt.name,
+      priceAddition: parseFloat(opt.priceAddition) || 0
+    }));
+
+  productFormData.append("sizeOptions", JSON.stringify(preparedSizeOptions));
+  productFormData.append("sideOptions", JSON.stringify(preparedSideOptions));
+  productFormData.append("materialOptions", JSON.stringify(preparedMaterialOptions));
 
 
   // ✨ جهز بيانات الكمية مع السعر
@@ -408,168 +475,145 @@ const calculateTotal = (price: number, quantity: number) => {
               </CardContent>
             </Card>
 
-   
-<div>
-  <Label htmlFor="side">المقاس *</Label>
-  <select
-    id="size"
-    value={formData.size || ""}
-    onChange={(e) => handleInputChange("size", e.target.value)}
-    className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
-  >
-    <option value="">اختر المقاس</option>
-  {sizeOptions.filter(opt => opt !== "").map((opt, i) => (
-  <option key={i} value={opt}>
-    {opt}
-  </option>
-))}
-    <option value="مخصص">مخصص (أدخل يدوياً)</option>
-  </select>
-
-  {formData.size === "مخصص" && (
-    <div className="mt-2 space-y-2">
-      {sizeOptions.map((opt, i) => (
-        <div key={i} className="flex gap-2">
-          <Input
-            value={opt}
-            placeholder={`خيار مقاس ${i + 1}`}
-            onChange={(e) => {
-              const newOptions = [...sizeOptions];
-              newOptions[i] = e.target.value;
-              setSizeOptions(newOptions);
-            }}
-          />
-          <Button
-            type="button"
-            variant="destructive"
-            size="icon"
-            onClick={() =>
-              setSizeOptions(sideOptions.filter((_, idx) => idx !== i))
-            }
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      ))}
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => setSizeOptions([...sideOptions, ""])}
-      >
-        + إضافة مقاس آخر
-      </Button>
+ <Card>
+  <CardHeader>
+    <CardTitle>خيارات المقاس مع الأسعار الإضافية</CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    <div>
+      <Label>المقاسات المتاحة والسعر الإضافي</Label>
+      <div className="mt-2 space-y-2">
+        {sizeOptions.map((opt, i) => (
+          <div key={i} className="flex gap-2 items-center">
+            <Input
+              value={opt.name}
+              placeholder={`اسم المقاس ${i + 1}`}
+              onChange={(e) => handleOptionChange("size", i, "name", e.target.value)}
+              className="flex-1"
+            />
+            <Input
+              type="number"
+              value={opt.priceAddition}
+              placeholder="السعر الإضافي"
+              onChange={(e) => handleOptionChange("size", i, "priceAddition", e.target.value)}
+              className="w-32"
+            />
+            <span className="text-sm text-muted-foreground">ر.س</span>
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              onClick={() => removeOption("size", i)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => addOption("size")}
+        >
+          + إضافة مقاس آخر
+        </Button>
+      </div>
     </div>
-  )}
-</div>
+  </CardContent>
+</Card>
 
 
 {/* الحجم */}
-<div>
-  <Label htmlFor="side">الحجم *</Label>
-  <select
-    id="side"
-    value={formData.side || ""}
-    onChange={(e) => handleInputChange("side", e.target.value)}
-    className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
-  >
-    <option value="">اختر الحجم</option>
-  {sideOptions.filter(opt => opt !== "").map((opt, i) => (
-  <option key={i} value={opt}>
-    {opt}
-  </option>
-))}
-    <option value="مخصص">مخصص (أدخل يدوياً)</option>
-  </select>
-
-  {formData.side === "مخصص" && (
-    <div className="mt-2 space-y-2">
-      {sideOptions.map((opt, i) => (
-        <div key={i} className="flex gap-2">
-          <Input
-            value={opt}
-            placeholder={`خيار حجم ${i + 1}`}
-            onChange={(e) => {
-              const newOptions = [...sideOptions];
-              newOptions[i] = e.target.value;
-              setSideOptions(newOptions);
-            }}
-          />
-          <Button
-            type="button"
-            variant="destructive"
-            size="icon"
-            onClick={() =>
-              setSideOptions(sideOptions.filter((_, idx) => idx !== i))
-            }
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      ))}
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => setSideOptions([...sideOptions, ""])}
-      >
-        + إضافة حجم آخر
-      </Button>
+<Card>
+  <CardHeader>
+    <CardTitle>خيارات الحجم مع الأسعار الإضافية</CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    <div>
+      <Label>الاحجام المتاحة والسعر الإضافي</Label>
+      <div className="mt-2 space-y-2">
+        {sideOptions.map((opt, i) => (
+          <div key={i} className="flex gap-2 items-center">
+            <Input
+              value={opt.name}
+              placeholder={`اسم الحجم ${i + 1}`}
+              onChange={(e) => handleOptionChange("side", i, "name", e.target.value)}
+              className="flex-1"
+            />
+            <Input
+              type="number"
+              value={opt.priceAddition}
+              placeholder="السعر الإضافي"
+              onChange={(e) => handleOptionChange("side", i, "priceAddition", e.target.value)}
+              className="w-32"
+            />
+            <span className="text-sm text-muted-foreground">ر.س</span>
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              onClick={() => removeOption("side", i)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => addOption("side")}
+        >
+          + إضافة حجم آخر
+        </Button>
+      </div>
     </div>
-  )}
-</div>
-
+  </CardContent>
+</Card>
 {/* المادة */}
-<div>
-  <Label htmlFor="material">المادة *</Label>
-  <select
-    id="material"
-    value={formData.material || ""}
-    onChange={(e) => handleInputChange("material", e.target.value)}
-    className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
-  >
-    <option value="">اختر المادة</option>
-  {materialOptions.filter(opt => opt !== "").map((opt, i) => (
-  <option key={i} value={opt}>
-    {opt}
-  </option>
-))}
-    <option value="مخصص">مخصص (أدخل يدوياً)</option>
-  </select>
-
-  {formData.material === "مخصص" && (
-    <div className="mt-2 space-y-2">
-      {materialOptions.map((opt, i) => (
-        <div key={i} className="flex gap-2">
-          <Input
-            value={opt}
-            placeholder={`خيار مادة ${i + 1}`}
-            onChange={(e) => {
-              const newOptions = [...materialOptions];
-              newOptions[i] = e.target.value;
-              setMaterialOptions(newOptions);
-            }}
-          />
-          <Button
-            type="button"
-            variant="destructive"
-            size="icon"
-            onClick={() =>
-              setMaterialOptions(materialOptions.filter((_, idx) => idx !== i))
-            }
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      ))}
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => setMaterialOptions([...materialOptions, ""])}
-      >
-        + إضافة مادة أخرى
-      </Button>
+<Card>
+  <CardHeader>
+    <CardTitle>خيارات المادة مع الأسعار الإضافية</CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    <div>
+      <Label>المواد المتاحة والسعر الإضافي</Label>
+      <div className="mt-2 space-y-2">
+        {materialOptions.map((opt, i) => (
+          <div key={i} className="flex gap-2 items-center">
+            <Input
+              value={opt.name}
+              placeholder={`اسم المادة ${i + 1}`}
+              onChange={(e) => handleOptionChange("material", i, "name", e.target.value)}
+              className="flex-1"
+            />
+            <Input
+              type="number"
+              value={opt.priceAddition}
+              placeholder="السعر الإضافي"
+              onChange={(e) => handleOptionChange("material", i, "priceAddition", e.target.value)}
+              className="w-32"
+            />
+            <span className="text-sm text-muted-foreground">ر.س</span>
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              onClick={() => removeOption("material", i)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => addOption("material")}
+        >
+          + إضافة مادة آخر
+        </Button>
+      </div>
     </div>
-  )}
-</div>
+  </CardContent>
+</Card>
 
             {/* Image Upload */}
             <Card>

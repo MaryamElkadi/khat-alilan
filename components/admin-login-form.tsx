@@ -11,7 +11,9 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAdminAuth } from "@/lib/admin-auth"
 import { useRouter } from "next/navigation"
-
+import { signIn } from "next-auth/react"
+import { FcGoogle } from "react-icons/fc"
+import { FaFacebook } from "react-icons/fa"
 export function AdminLoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -131,6 +133,27 @@ export function AdminLoginForm() {
   </p>
 </div>
 
+<div className="mt-6 space-y-3">
+  <Button
+    type="button"
+    variant="outline"
+    className="w-full flex items-center justify-center gap-2"
+    onClick={() => signIn("google", { callbackUrl: "/" })}
+  >
+    <FcGoogle className="h-5 w-5" />
+    متابعة باستخدام Google
+  </Button>
+
+  <Button
+    type="button"
+    variant="outline"
+    className="w-full flex items-center justify-center gap-2"
+    onClick={() => signIn("facebook", { callbackUrl: "/" })}
+  >
+    <FaFacebook className="h-5 w-5 text-blue-600" />
+    متابعة باستخدام Facebook
+  </Button>
+</div>
             </form>
 
             <div className="mt-6 p-4 bg-muted/50 rounded-lg">

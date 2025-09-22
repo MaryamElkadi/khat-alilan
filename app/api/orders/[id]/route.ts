@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import Order from "@/models/orders";
+import Order from "@/models/Orders";
 
 export async function GET(req: Request, context: { params: { id: string } }) {
   try {

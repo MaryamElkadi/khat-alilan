@@ -21,6 +21,7 @@ const navigationItems = [
   { name: "الخدمات", href: "/services" },
   { name: "المنتجات", href: "/products" },
   { name: "من نحن", href: "/about" },
+  { name: "الطلبات", href: "/orders" },
   { name: "تواصل معنا", href: "/contact" },
 ]
 

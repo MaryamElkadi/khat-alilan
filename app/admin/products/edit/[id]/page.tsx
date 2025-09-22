@@ -62,10 +62,7 @@ export default function EditProductPage() {
   const [sideOptions, setSideOptions] = useState<string[]>(["وجه واحد", "وجهين"])
   const [materialOptions, setMaterialOptions] = useState<string[]>(["ورق عادي", "ورق لامع", "بلاستيك"])
 
-  // State for quantity options
-  const [quantities, setQuantities] = useState<QuantityRow[]>([
-    { quantity: "", price: "", total: 0 },
-  ])
+  
 
   const [formData, setFormData] = useState<FormData>({
     title: "",
@@ -239,7 +236,16 @@ export default function EditProductPage() {
     newQuantities[index].total = calculateTotal(price, qty);
     setQuantities(newQuantities);
   };
+type QuantityRow = {
+  quantity: string;
+  price: string;
+  total: number;
+};
 
+// The initial state should match the type
+const [quantities, setQuantities] = useState<QuantityRow[]>([
+  { quantity: "", price: "", total: 0 }, // Added missing price field
+]);
   const addQuantityRow = () => {
     setQuantities([...quantities, { quantity: "", price: "", total: 0 }]);
   };

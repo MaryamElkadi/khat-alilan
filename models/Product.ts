@@ -1,6 +1,11 @@
 // models/Product.ts
 import mongoose from "mongoose";
 
+// Clear any existing model to force schema update
+if (mongoose.models.Product) {
+  delete mongoose.models.Product;
+}
+
 const ProductSchema = new mongoose.Schema({
   title: { type: String, required: true },  
   description: { type: String, required: true },
@@ -9,10 +14,28 @@ const ProductSchema = new mongoose.Schema({
   featured: { type: Boolean, default: false },
   category: { type: String, required: true },
 
-  // خيارات مرنة حسب المنتج
-  sizeOptions: { type: [String], default: [] },     
-  sideOptions: { type: [String], default: [] },     
-  materialOptions: { type: [String], default: [] }, 
+  // Updated schema for options with price additions - FIXED STRUCTURE
+  sizeOptions: { 
+    type: [{
+      name: { type: String, required: true },
+      priceAddition: { type: Number, default: 0 }
+    }], 
+    default: [] 
+  },     
+  sideOptions: { 
+    type: [{
+      name: { type: String, required: true },
+      priceAddition: { type: Number, default: 0 }
+    }], 
+    default: [] 
+  },     
+  materialOptions: { 
+    type: [{
+      name: { type: String, required: true },
+      priceAddition: { type: Number, default: 0 }
+    }], 
+    default: [] 
+  }, 
   quantityOptions: { 
     type: [{
       quantity: { type: Number, required: true },
@@ -23,4 +46,7 @@ const ProductSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-export default mongoose.models.Product || mongoose.model("Product", ProductSchema);
+// Create the model
+const Product = mongoose.model("Product", ProductSchema);
+
+export default Product;

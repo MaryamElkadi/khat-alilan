@@ -20,7 +20,6 @@ import { useRouter } from "next/navigation";
 interface ProductDetailPageProps {
   params: { id: string };
 }
-
 interface Product {
   _id: string;
   title: string;
@@ -30,7 +29,11 @@ interface Product {
   category: string;
   quantityOptions: { quantity: number; price: number }[];
   featured: boolean;
+  sizeOptions: string[] | { name: string; priceAddition: number }[]; // Updated
+  sideOptions: string[] | { name: string; priceAddition: number }[]; // Updated
+  materialOptions: string[] | { name: string; priceAddition: number }[]; // Updated
 }
+
 
 export default function ProductDetailPage({
   params,
@@ -46,9 +49,9 @@ export default function ProductDetailPage({
   const [error, setError] = useState(false);
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [selectedSize, setSelectedSize] = useState("");
-  const [selectedSide, setSelectedSide] = useState("");
-  const [selectedMaterial, setSelectedMaterial] = useState("");
+const [selectedSize, setSelectedSize] = useState<{name: string, priceAddition: number} | null>(null);
+const [selectedSide, setSelectedSide] = useState<{name: string, priceAddition: number} | null>(null);
+const [selectedMaterial, setSelectedMaterial] = useState<{name: string, priceAddition: number} | null>(null);
   const [selectedQuantityOption, setSelectedQuantityOption] = useState<
     { quantity: number; price: number } | null
   >(null);
@@ -75,24 +78,43 @@ export default function ProductDetailPage({
 const handleAddToCart = () => {
   if (!product) return;
   
-  const price = selectedQuantityOption ? selectedQuantityOption.price : product.price;
-  const quantity = selectedQuantityOption ? selectedQuantityOption.quantity : 1;
-  
-  const productWithTax = {
+  const productWithOptions = {
     ...product,
-    price: Number((price * 1.15).toFixed(2)),
-    selectedQuantity: quantity,
+    price: currentPrice.total,
     selectedSize,
     selectedSide,
     selectedMaterial,
+    selectedQuantity: selectedQuantityOption ? selectedQuantityOption.quantity : 1,
   };
   
-  addItem(productWithTax);
+  addItem(productWithOptions);
 };
 
   const goBack = () => {
     router.back();
   };
+const calculateTotalPrice = () => {
+  if (!product) return { subtotal: 0, tax: 0, total: 0 };
+  
+  const basePrice = selectedQuantityOption ? selectedQuantityOption.price : product.price;
+  
+  // Helper function to get price addition from selected option
+  const getPriceAddition = (option: {name: string, priceAddition: number} | null) => {
+    return option ? option.priceAddition : 0;
+  };
+  
+  const subtotal = basePrice + getPriceAddition(selectedSize) + getPriceAddition(selectedSide) + getPriceAddition(selectedMaterial);
+  const tax = subtotal * 0.15;
+  
+  return {
+    subtotal,
+    tax,
+    total: subtotal + tax
+  };
+};
+
+const currentPrice = calculateTotalPrice();
+
 
   if (loading) {
     return (
@@ -233,22 +255,71 @@ const handleAddToCart = () => {
                 </p>
 
                 {/* ✅ حجم / مقاس / مادة */}
- {/* ✅ الحجم */}
+ {/* ✅ المقاس (Size) */}
+<div>
+  <h3 className="font-semibold text-white mb-2">اختر المقاس:</h3>
+  <Select 
+    value={selectedSize?.name || ""} 
+    onValueChange={(value) => {
+      // Handle case where product.sizeOptions might be undefined or have different structure
+      const sizeOptions = product?.sizeOptions || [];
+      const option = typeof sizeOptions[0] === 'string' 
+        ? { name: value, priceAddition: 0 } // Fallback for old string format
+        : sizeOptions.find((opt: any) => opt?.name === value);
+      setSelectedSize(option || null);
+    }}
+  >
+    <SelectTrigger className="w-full">
+      <SelectValue placeholder="اختر المقاس المطلوب" />
+    </SelectTrigger>
+    <SelectContent>
+      {product?.sizeOptions && product.sizeOptions.length > 0 ? (
+        // Handle both string array and object array formats
+        product.sizeOptions.map((opt: any, i: number) => {
+          const optionName = typeof opt === 'string' ? opt : opt?.name;
+          const priceAddition = typeof opt === 'string' ? 0 : opt?.priceAddition || 0;
+          
+          return (
+            <SelectItem key={i} value={optionName}>
+              {optionName} {priceAddition > 0 ? `(+${priceAddition} ر.س)` : ""}
+            </SelectItem>
+          );
+        })
+      ) : (
+        <SelectItem value="no-options">لا توجد خيارات متاحة</SelectItem>
+      )}
+    </SelectContent>
+  </Select>
+</div>
+
+{/* ✅ الحجم (Side) */}
 <div>
   <h3 className="font-semibold text-white mb-2">اختر الحجم:</h3>
-  <Select value={selectedSize} onValueChange={setSelectedSize}>
+  <Select 
+    value={selectedSide?.name || ""} 
+    onValueChange={(value) => {
+      const sideOptions = product?.sideOptions || [];
+      const option = typeof sideOptions[0] === 'string'
+        ? { name: value, priceAddition: 0 }
+        : sideOptions.find((opt: any) => opt?.name === value);
+      setSelectedSide(option || null);
+    }}
+  >
     <SelectTrigger className="w-full">
       <SelectValue placeholder="اختر الحجم المطلوب" />
     </SelectTrigger>
     <SelectContent>
-      {product.sizeOptions?.filter(opt => opt && opt.trim() !== "").length > 0 ? (
-        product.sizeOptions
-          .filter(opt => opt && opt.trim() !== "")
-          .map((opt: string, i: number) => (
-            <SelectItem key={i} value={opt}>
-              {opt}
+      {product?.sideOptions && product.sideOptions.length > 0 ? (
+        product.sideOptions.map((opt: any, i: number) => {
+          const optionName = typeof opt === 'string' ? opt : opt?.name;
+          const priceAddition = typeof opt === 'string' ? 0 : opt?.priceAddition || 0;
+          
+          return (
+            <SelectItem key={i} value={optionName}>
+              {optionName} {priceAddition > 0 ? `(+${priceAddition} ر.س)` : ""}
             </SelectItem>
-          ))
+          );
+        })
       ) : (
         <SelectItem value="no-options">لا توجد خيارات متاحة</SelectItem>
       )}
@@ -256,52 +327,40 @@ const handleAddToCart = () => {
   </Select>
 </div>
 
-{/* ✅ المقاس (Side) */}
-<div>
-  <h3 className="font-semibold text-white mb-2">اختر المقاس:</h3>
-  <Select value={selectedSide} onValueChange={setSelectedSide}>
-    <SelectTrigger className="w-full">
-      <SelectValue placeholder="اختر المقاس" />
-    </SelectTrigger>
-    <SelectContent>
-      {product.sideOptions?.filter(opt => opt && opt.trim() !== "").length > 0 ? (
-        product.sideOptions
-          .filter(opt => opt && opt.trim() !== "")
-          .map((opt: string, i: number) => (
-            <SelectItem key={i} value={opt}>
-              {opt}
-            </SelectItem>
-          ))
-      ) : (
-        <SelectItem value="no-options">لا توجد خيارات متاحة</SelectItem>
-      )}
-    </SelectContent>
-  </Select>
-</div>
-
-{/* ✅ المادة */}
+{/* ✅ المادة (Material) */}
 <div>
   <h3 className="font-semibold text-white mb-2">اختر المادة:</h3>
-  <Select value={selectedMaterial} onValueChange={setSelectedMaterial}>
+  <Select 
+    value={selectedMaterial?.name || ""} 
+    onValueChange={(value) => {
+      const materialOptions = product?.materialOptions || [];
+      const option = typeof materialOptions[0] === 'string'
+        ? { name: value, priceAddition: 0 }
+        : materialOptions.find((opt: any) => opt?.name === value);
+      setSelectedMaterial(option || null);
+    }}
+  >
     <SelectTrigger className="w-full">
-      <SelectValue placeholder="اختر المادة" />
+      <SelectValue placeholder="اختر المادة المطلوبة" />
     </SelectTrigger>
     <SelectContent>
-      {product.materialOptions?.filter(opt => opt && opt.trim() !== "").length > 0 ? (
-        product.materialOptions
-          .filter(opt => opt && opt.trim() !== "")
-          .map((opt: string, i: number) => (
-            <SelectItem key={i} value={opt}>
-              {opt}
+      {product?.materialOptions && product.materialOptions.length > 0 ? (
+        product.materialOptions.map((opt: any, i: number) => {
+          const optionName = typeof opt === 'string' ? opt : opt?.name;
+          const priceAddition = typeof opt === 'string' ? 0 : opt?.priceAddition || 0;
+          
+          return (
+            <SelectItem key={i} value={optionName}>
+              {optionName} {priceAddition > 0 ? `(+${priceAddition} ر.س)` : ""}
             </SelectItem>
-          ))
+          );
+        })
       ) : (
         <SelectItem value="no-options">لا توجد خيارات متاحة</SelectItem>
       )}
     </SelectContent>
   </Select>
 </div>
-
 {/* ✅ الكمية */}
 <div>
   <h3 className="font-semibold text-white mb-2">اختر الكمية:</h3>

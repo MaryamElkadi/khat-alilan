@@ -122,7 +122,7 @@ export function FeaturedProducts() {
                           <Button
                             size="sm"
                             className="bg-brand-yellow text-black hover:bg-brand-yellow/90 shadow-lg"
-                            onClick={() => viewProductDetails(product.id)}
+                            onClick={() => viewProductDetails(product._id)}
                           >
                             <Eye className="h-4 w-4 ml-2" />
                             عرض التفاصيل
