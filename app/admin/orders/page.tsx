@@ -112,7 +112,9 @@ const [editOrder, setEditOrder] = useState<any | null>(null);
               </CardHeader>
               <CardContent>
                 <p className="text-sm mb-2">العميل: {order.customer}</p>
-                <p className="text-sm mb-2">عدد المنتجات: {order.items}</p>
+<p className="text-sm mb-2">
+  عدد المنتجات: {Array.isArray(order.items) ? order.items.length : order.items}
+</p>
                 <p className="font-bold text-brand-yellow">
                   {order.total.toLocaleString()} ر.س
                 </p>

@@ -1,102 +1,99 @@
 "use client"
 
+import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Palette, Globe, Camera, Megaphone, PenTool, Monitor, Star, Clock } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Star, Clock, Palette, Globe, Camera, Megaphone, PenTool, Monitor, Brush, Scissors, Sparkles } from "lucide-react"
+import RequestServiceDialog from "@/request-service"
 
-const services = [
-  {
-    id: "graphic-design",
-    title: "تصميم جرافيك",
-    description: "تصاميم إبداعية ومتميزة للهوية البصرية والمواد الإعلانية",
-    icon: Palette,
-    price: "من 1,500 ر.س",
-    duration: "5-7 أيام",
-    rating: 4.9,
-    features: ["تصميم الشعار", "دليل الهوية", "بطاقات العمل", "ورق رسمي"],
-  },
-  {
-    id: "web-design",
-    title: "تصميم مواقع ويب",
-    description: "مواقع ويب حديثة ومتجاوبة مع جميع الأجهزة",
-    icon: Globe,
-    price: "من 3,000 ر.س",
-    duration: "10-14 يوم",
-    rating: 4.8,
-    features: ["تصميم متجاوب", "لوحة تحكم", "تحسين محركات البحث", "استضافة مجانية"],
-  },
-  {
-    id: "social-media",
-    title: "إعلانات وسائل التواصل",
-    description: "حملات إعلانية مؤثرة على منصات التواصل الاجتماعي",
-    icon: Megaphone,
-    price: "من 2,000 ر.س/شهر",
-    duration: "مستمر",
-    rating: 4.7,
-    features: ["إنشاء المحتوى", "جدولة المنشورات", "تفاعل مع الجمهور", "تقارير شهرية"],
-  },
-  {
-    id: "printing",
-    title: "طباعة ونشر",
-    description: "خدمات طباعة عالية الجودة للمواد الإعلانية والتسويقية",
-    icon: Monitor, // Changed from Printer to Monitor for consistency
-    price: "من 800 ر.س",
-    duration: "1-3 أيام",
-    rating: 4.9,
-    features: ["تصوير المنتجات", "تصوير الفعاليات", "معالجة الصور", "تسليم سريع"],
-  },
-  {
-    id: "photography",
-    title: "التصوير الفوتوغرافي",
-    description: "تصوير احترافي للمنتجات والفعاليات والبورتريه",
-    icon: Camera,
-    price: "من 800 ر.س",
-    duration: "1-3 أيام",
-    rating: 4.9,
-    features: ["تصوير المنتجات", "تصوير الفعاليات", "معالجة الصور", "تسليم سريع"],
-  },
-  {
-    id: "digital-marketing",
-    title: "التسويق الرقمي",
-    description: "استراتيجيات تسويقية شاملة لزيادة المبيعات والوصول",
-    icon: PenTool, // Changed from BarChart3 to PenTool for consistency
-    price: "من 2,500 ر.س",
-    duration: "7-10 أيام",
-    rating: 4.9,
-    features: ["تصميم UX/UI", "نماذج أولية", "اختبار المستخدم", "دليل التصميم"],
-  },
-]
+// Define the Service type
+interface Service {
+  _id: string
+  title: string
+  description: string
+  icon: string
+  price: number
+  duration: string
+  rating: number
+  features: string[]
+}
+
+// Map icon names to their components
+const iconMap: Record<string, React.ElementType> = {
+  Palette,
+  Globe,
+  Camera,
+  Megaphone,
+  PenTool,
+  Monitor,
+  Brush,
+  Scissors,
+  Sparkles,
+}
 
 export default function ServicesPage() {
-  const searchParams = useSearchParams()
-  const [activeService, setActiveService] = useState<string | null>(null)
-  const serviceRefs = useRef<{[key: string]: HTMLDivElement | null}>({})
+  const [services, setServices] = useState<Service[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [selectedService, setSelectedService] = useState<Service | null>(null)
+  const serviceRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
 
+  // Fetch services from database
   useEffect(() => {
-    // Check if there's a hash in the URL when the component mounts
-    const hash = window.location.hash.substring(1)
-    if (hash && services.some(service => service.id === hash)) {
-      setActiveService(hash)
-      
-      // Scroll to the service after a short delay to allow the page to render
-      setTimeout(() => {
-        const element = serviceRefs.current[hash]
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          
-          // Add a highlight effect
-          element.classList.add('ring-2', 'ring-brand-yellow', 'shadow-lg')
-          setTimeout(() => {
-            element.classList.remove('ring-2', 'ring-brand-yellow', 'shadow-lg')
-          }, 2000)
-        }
-      }, 100)
+    const fetchServices = async () => {
+      try {
+        const res = await fetch("/api/services")
+        if (!res.ok) throw new Error("Failed to fetch services")
+
+        const data: Service[] = await res.json()
+
+        // Ensure features is always an array
+        const normalized = data.map(s => ({
+          ...s,
+          features: Array.isArray(s.features) ? s.features : [],
+        }))
+
+        setServices(normalized)
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [searchParams])
+
+    fetchServices()
+  }, [])
+
+  // Function to open the dialog with the selected service
+  const handleOpenDialog = (service: Service) => {
+    setSelectedService(service)
+    setIsDialogOpen(true)
+  }
+
+  // Function to close the dialog
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false)
+    setSelectedService(null)
+  }
+
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>جاري تحميل الخدمات...</p>
+      </div>
+    )
+  }
+
+  if (!services.length) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>لا توجد خدمات حالياً</p>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background pt-20">
@@ -113,57 +110,65 @@ export default function ServicesPage() {
 
         {/* Services Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {services.map((service, index) => (
-            <motion.div
-              key={service.id}
-              ref={el => serviceRefs.current[service.id] = el}
-              id={service.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              whileHover={{ y: -5 }}
-              className="transition-all duration-300 rounded-lg"
-            >
-              <Card className="h-full hover:shadow-lg transition-shadow duration-300">
-                <CardHeader>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 rounded-lg bg-brand-yellow/10">
-                      <service.icon className="h-6 w-6 text-brand-yellow" />
+          {services.map((service, index) => {
+            const Icon = iconMap[service.icon] || Palette
+            return (
+              <motion.div
+                key={service._id}
+                ref={el => serviceRefs.current[service._id] = el}
+                id={service._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ y: -5 }}
+                className="transition-all duration-300 rounded-lg"
+              >
+                <Card className="h-full hover:shadow-lg transition-shadow duration-300">
+                  <CardHeader>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="p-3 rounded-lg bg-brand-yellow/10">
+                        <Icon className="h-6 w-6 text-brand-yellow" />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                        <span className="text-sm font-medium">{service.rating}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="text-sm font-medium">{service.rating}</span>
+                    <CardTitle className="text-xl mb-2">{service.title}</CardTitle>
+                    <p className="text-muted-foreground text-sm">{service.description}</p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="secondary" className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {service.duration}
+                      </Badge>
+                      <span className="font-bold text-brand-blue">{service.price}</span>
                     </div>
-                  </div>
-                  <CardTitle className="text-xl mb-2">{service.title}</CardTitle>
-                  <p className="text-muted-foreground text-sm">{service.description}</p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {service.duration}
-                    </Badge>
-                    <span className="font-bold text-brand-blue">{service.price}</span>
-                  </div>
 
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-sm">يشمل:</h4>
-                    <ul className="space-y-1">
-                      {service.features.map((feature, idx) => (
-                        <li key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-brand-yellow" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <Button className="w-full bg-brand-yellow text-black hover:bg-brand-yellow/90">طلب الخدمة</Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-sm">يشمل:</h4>
+                      <ul className="space-y-1">
+                        {(service.features || []).map((feature, idx) => (
+                          <li key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-brand-yellow" />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+               
+                    <Button
+                      className="w-full bg-brand-yellow text-black hover:bg-brand-yellow/90"
+                      onClick={() => handleOpenDialog(service)}
+                    >
+                      طلب الخدمة
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )
+          })}
         </div>
 
         {/* CTA Section */}
@@ -180,6 +185,12 @@ export default function ServicesPage() {
           </Button>
         </motion.div>
       </div>
+      {/* The Dialog component is rendered here, only visible when isDialogOpen is true */}
+      <RequestServiceDialog
+        isOpen={isDialogOpen}
+        onOpenChange={handleCloseDialog}
+        service={selectedService}
+      />
     </div>
   )
 }

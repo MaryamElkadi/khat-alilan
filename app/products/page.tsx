@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Search, Grid, List } from "lucide-react"
+import { Eye } from "lucide-react"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { useCart } from "@/lib/cart-context"
+import { useRouter } from "next/navigation" 
 import type { Product } from "@/lib/types"
 
 const categories = [
@@ -19,24 +18,22 @@ const categories = [
   "إعلانات وسائل التواصل",
   "طباعة ونشر",
   "التصوير الفوتوغرافي",
+  "هدايا إعلانية",    
+  "طباعة الرقمية",  
 ]
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("جميع الفئات")
-  const [sortBy, setSortBy] = useState("الأحدث")
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const { dispatch } = useCart()
+  const { addItem } = useCart()
+  const router = useRouter() 
 
-  // fetch products from API
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const res = await fetch("/api/products")
-        if (!res.ok) throw new Error("فشل تحميل المنتجات")
         const data = await res.json()
         setProducts(data)
       } catch (err: any) {
@@ -49,206 +46,121 @@ export default function ProductsPage() {
     fetchProducts()
   }, [])
 
-  // filter + search
   const filteredProducts = products.filter((product) => {
-    const matchesSearch =
-      product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === "جميع الفئات" || product.category === selectedCategory
-    return matchesSearch && matchesCategory
+    return matchesCategory
   })
 
-  // sorting
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    switch (sortBy) {
-      case "السعر: من الأقل للأعلى":
-        return a.price - b.price
-      case "السعر: من الأعلى للأقل":
-        return b.price - a.price
-      case "الاسم":
-        return a.title.localeCompare(b.title, "ar")
-      default:
-        return 0
+  const handleAddToCart = (product: Product) => {
+    const productWithTax = {
+      ...product,
+      price: Number((product.price * 1.15).toFixed(2)), 
     }
-  })
+    addItem(productWithTax)
+  }
 
-  const addToCart = (product: Product) => {
-    dispatch({ type: "ADD_ITEM", payload: product })
+  const viewProductDetails = (productId: string) => {
+    router.push(`/products/${productId}`)
   }
 
   return (
     <div className="min-h-screen bg-black text-white">
       <main className="pt-8">
-        {/* Header */}
-        <section className="py-12 bg-muted/30">
-          <div className="container mx-auto px-4">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="text-center"
-            >
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                <span className="text-brand-yellow">منتجاتنا</span>{" "}
-                <span className="text-brand-blue">وخدماتنا</span>
-              </h1>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                اكتشف مجموعتنا الشاملة من الخدمات الإعلانية والتسويقية
-              </p>
-            </motion.div>
+        
+        {/* ✅ Category Filter Section */}
+        <section className="py-6 border-b border-border">
+          <div className="container mx-auto px-4 flex flex-wrap gap-3 justify-center">
+            {categories.map((cat) => (
+              <Button
+                key={cat}
+                variant={selectedCategory === cat ? "default" : "outline"}
+                className={`px-4 py-2 rounded-full ${
+                  selectedCategory === cat
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-gray-600 text-gray-300 hover:bg-gray-800"
+                }`}
+                onClick={() => setSelectedCategory(cat)}
+              >
+                {cat}
+              </Button>
+            ))}
           </div>
         </section>
 
-        {/* Filters */}
-        <section className="py-8 border-b border-border">
-          <div className="container mx-auto px-4">
-            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-              {/* Search */}
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  type="search"
-                  placeholder="ابحث عن المنتجات..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pr-10 text-right"
-                />
-              </div>
-
-              {/* Filters */}
-              <div className="flex items-center gap-4">
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="الأحدث">الأحدث</SelectItem>
-                    <SelectItem value="السعر: من الأقل للأعلى">السعر: من الأقل للأعلى</SelectItem>
-                    <SelectItem value="السعر: من الأعلى للأقل">السعر: من الأعلى للأقل</SelectItem>
-                    <SelectItem value="الاسم">الاسم</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {/* View Mode */}
-                <div className="flex border border-border rounded-lg">
-                  <Button
-                    variant={viewMode === "grid" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setViewMode("grid")}
-                    className="rounded-l-none"
-                  >
-                    <Grid className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === "list" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setViewMode("list")}
-                    className="rounded-r-none"
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Results Count */}
-            <div className="mt-4 text-sm text-muted-foreground">
-              {loading
-                ? "جاري التحميل..."
-                : `عرض ${sortedProducts.length} من أصل ${products.length} منتج`}
-            </div>
-          </div>
-        </section>
-
-        {/* Products Grid */}
+        {/* ✅ Products Grid */}
         <section className="py-12">
           <div className="container mx-auto px-4">
             {loading ? (
               <p className="text-center">جاري تحميل المنتجات...</p>
             ) : error ? (
               <p className="text-center text-red-500">{error}</p>
+            ) : filteredProducts.length === 0 ? (
+              <p className="text-center text-gray-400">لا توجد منتجات لهذه الفئة.</p>
             ) : (
-              <div
-                className={
-                  viewMode === "grid"
-                    ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-                    : "space-y-6"
-                }
-              >
-                {sortedProducts.map((product, index) => (
-                  <motion.div
-                    key={product._id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: index * 0.1 }}
-                    className={viewMode === "list" ? "w-full" : ""}
-                  >
-                    <Card
-                      className={`h-full overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 group ${
-                        viewMode === "list" ? "flex flex-row" : ""
-                      }`}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {filteredProducts.map((product, index) => {
+                  const priceWithTax = (product.price * 1.15).toFixed(2)
+                  return (
+                    <motion.div
+                      key={product._id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.6, delay: index * 0.1 }}
                     >
-                      <CardHeader className={`p-0 relative ${viewMode === "list" ? "w-1/3" : ""}`}>
-                        <div className="relative overflow-hidden">
-                          <img
-                            src={product.image || "/placeholder.svg"}
-                            alt={product.title}
-                            className={`object-cover transition-transform duration-300 group-hover:scale-105 ${
-                              viewMode === "list" ? "w-full h-full" : "w-full h-48"
-                            }`}
-                          />
-                          {product.featured && (
-                            <Badge className="absolute top-4 right-4 bg-primary text-primary-foreground">
-                              مميز
-                            </Badge>
-                          )}
-                        </div>
-                      </CardHeader>
+                      <Card className="h-full overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 group">
+                        <CardHeader className="p-0 relative">
+                          <div
+                            className="relative overflow-hidden cursor-pointer"
+                            onClick={() => viewProductDetails(product._id)}
+                          >
+                            <img
+                              src={Array.isArray(product.image) ? product.image[0] : product.image || "/placeholder.svg"}
+                              alt={product.title}
+                              className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                            {product.featured && (
+                              <Badge className="absolute top-4 right-4 bg-primary text-primary-foreground">مميز</Badge>
+                            )}
+                          </div>
+                        </CardHeader>
 
-                      <div className={viewMode === "list" ? "flex-1 flex flex-col" : ""}>
-                        <CardContent className={`p-6 ${viewMode === "list" ? "flex-1" : ""}`}>
+                        <CardContent className="p-6">
                           <Badge variant="outline" className="mb-2 text-xs">
                             {product.category}
                           </Badge>
-
-                          <h3 className="font-bold text-lg mb-2 leading-tight">{product.title}</h3>
-
-                          <p className="text-muted-foreground text-sm mb-4 leading-relaxed">
-                            {product.description}
-                          </p>
-
-                          <div className="flex items-center justify-between">
-                            <div className="text-2xl font-bold text-primary">
-                              {product.price.toLocaleString()} ر.س
-                            </div>
+                          <h3
+                            className="font-bold text-lg mb-2 leading-tight cursor-pointer hover:text-brand-blue"
+                            onClick={() => viewProductDetails(product._id)}
+                          >
+                            {product.title}
+                          </h3>
+                          <p className="text-muted-foreground text-sm mb-4 leading-relaxed line-clamp-2">{product.description}</p>
+                          <div className="mt-4 text-right">
+                            <div className="text-gray-400">السعر: {product.price.toLocaleString()} ر.س</div>
+                            <div className="text-2xl font-bold text-primary">مع الضريبة: {priceWithTax} ر.س</div>
                           </div>
                         </CardContent>
 
-                        <CardFooter className="p-6 pt-0">
+                        <CardFooter className="p-6 pt-0 flex gap-2">
                           <Button
-                            onClick={() => addToCart(product)}
-                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                            onClick={() => handleAddToCart(product)}
+                            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                           >
                             أضف إلى السلة
                           </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => viewProductDetails(product._id)}
+                            className="flex items-center gap-1"
+                          >
+                            <Eye className="h-4 w-4" />
+                            عرض التفاصيل
+                          </Button>
                         </CardFooter>
-                      </div>
-                    </Card>
-                  </motion.div>
-                ))}
+                      </Card>
+                    </motion.div>
+                  )
+                })}
               </div>
             )}
           </div>

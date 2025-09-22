@@ -36,19 +36,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
-    // check if already in cart
-    const existingItem = cart.items.find((item: any) => item.id.toString() === productId)
+  // check if already in cart
+const existingItem = cart.items.find((item: any) => item.productId.toString() === productId)
 
-    if (existingItem) {
-      existingItem.quantity += quantity
-    } else {
-      cart.items.push({
-        id: product._id,
-        name: product.name,
-        price: product.price, // ✅ ensure price comes from DB
-        quantity,
-      })
-    }
+if (existingItem) {
+  existingItem.quantity += quantity
+} else {
+  cart.items.push({
+    productId: product._id,
+    name: product.title, // ✅ title من Product schema
+    price: Number((product.price * 1.15).toFixed(2)), // ✅ السعر بعد الضريبة
+    quantity,
+  })
+}
+
 
     // recalc total safely
     cart.total = cart.items

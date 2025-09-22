@@ -1,11 +1,21 @@
 export interface Product {
+  _id: string
   id: string
   title: string
+  name: string
   description: string
   price: number
-  image: string
   category: string
+  image: string | string[]
   featured: boolean
+  quantityOptions?: number[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface CartItem extends Product {
+  quantity: number
+  selectedQuantityOption?: number
 }
 
 export interface CartItem extends Product {

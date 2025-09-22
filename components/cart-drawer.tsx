@@ -30,7 +30,8 @@ export function CartDrawer({ children }: CartDrawerProps) {
             <SheetTitle className="text-xl font-bold text-right">سلة التسوق ({itemCount})</SheetTitle>
           </SheetHeader>
 
-          {items.length === 0 ? (
+          {!items || items.length === 0 ? (
+
             <div className="flex-1 flex items-center justify-center p-6">
               <div className="text-center">
                 <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">

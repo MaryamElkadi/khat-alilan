@@ -1,15 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { Save, ArrowRight, Upload } from "lucide-react"
+import { Save, ArrowRight, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
-import { useProducts } from "@/app/admin/context/products"
 
 const categories = [
   "تصميم جرافيك",
@@ -19,7 +18,9 @@ const categories = [
   "التصوير الفوتوغرافي",
   "الهوية التجارية",
   "التسويق الرقمي",
-]
+  "طباعة رقمية", 
+  "هدايا اعلانية"
+];
 
 interface FormData {
   title: string
@@ -28,17 +29,44 @@ interface FormData {
   category: string
   featured: boolean
   status: string
+  images: string[]
+  sizeOptions: string[]
+  sideOptions: string[]
+  materialOptions: string[]
+  quantityOptions: {
+    quantity: number
+    price: number
+  }[]
+}
+
+interface QuantityRow {
+  quantity: string;
+  price: string;
+  total: number;
 }
 
 export default function EditProductPage() {
   const [images, setImages] = useState<File[]>([])
+  const [existingImages, setExistingImages] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
   const router = useRouter()
   const params = useParams()
   const id = params?.id as string
-  const { products, setProducts } = useProducts()
-const product = products.find((p) => p._id === id)
+  const inputRef = useRef<HTMLInputElement | null>(null)
 
-  const [loading, setLoading] = useState(true)
+  // State for custom options
+  const [customSizes, setCustomSizes] = useState<string[]>([""])
+  const [customSides, setCustomSides] = useState<string[]>([""])
+  const [customMaterials, setCustomMaterials] = useState<string[]>([""])
+  const [sizeOptions, setSizeOptions] = useState<string[]>(["A4", "A3", "A5"])
+  const [sideOptions, setSideOptions] = useState<string[]>(["وجه واحد", "وجهين"])
+  const [materialOptions, setMaterialOptions] = useState<string[]>(["ورق عادي", "ورق لامع", "بلاستيك"])
+
+  // State for quantity options
+  const [quantities, setQuantities] = useState<QuantityRow[]>([
+    { quantity: "", price: "", total: 0 },
+  ])
+
   const [formData, setFormData] = useState<FormData>({
     title: "",
     description: "",
@@ -46,85 +74,238 @@ const product = products.find((p) => p._id === id)
     category: "",
     featured: false,
     status: "نشط",
+    images: [],
+    sizeOptions: [],
+    sideOptions: [],
+    materialOptions: [],
+    quantityOptions: []
   })
 
-useEffect(() => {
-  const fetchProduct = async () => {
-    try {
-      const res = await fetch(`/api/products/${id}`)
-      if (res.ok) {
-        const data = await res.json()
-        setFormData({
-          title: data.title || "",
-          description: data.description || "",
-          price: data.price?.toString() || "",
-          category: data.category || "",
-          featured: data.featured || false,
-          status: data.status || "نشط",
-        })
+  const [calculatedPrice, setCalculatedPrice] = useState({
+    subtotal: 0,
+    tax: 0,
+    total: 0,
+  })
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const res = await fetch(`/api/products/${id}`)
+        if (res.ok) {
+          const data = await res.json()
+          
+          setFormData({
+            title: data.title || "",
+            description: data.description || "",
+            price: data.price?.toString() || "",
+            category: data.category || "",
+            featured: data.featured || false,
+            status: data.status || "نشط",
+            images: data.image || [],
+            sizeOptions: data.sizeOptions || [],
+            sideOptions: data.sideOptions || [],
+            materialOptions: data.materialOptions || [],
+            quantityOptions: data.quantityOptions || []
+          })
+
+          setExistingImages(data.image || [])
+          
+          // Set options from product data
+          if (data.sizeOptions && data.sizeOptions.length > 0) {
+            setSizeOptions(data.sizeOptions)
+          }
+          
+          if (data.sideOptions && data.sideOptions.length > 0) {
+            setSideOptions(data.sideOptions)
+          }
+          
+          if (data.materialOptions && data.materialOptions.length > 0) {
+            setMaterialOptions(data.materialOptions)
+          }
+          
+          // Set quantity options
+          if (data.quantityOptions && data.quantityOptions.length > 0) {
+            const qtyRows = data.quantityOptions.map((q: any) => ({
+              quantity: q.quantity.toString(),
+              price: q.price.toString(),
+              total: calculateTotal(q.price, q.quantity)
+            }))
+            setQuantities(qtyRows)
+          }
+        }
+      } catch (error) {
+        console.error("خطأ في تحميل المنتج", error)
       }
-    } catch (error) {
-      console.error("خطأ في تحميل المنتج", error)
-    } finally {
-      setLoading(false)
     }
+
+    if (id) fetchProduct()
+  }, [id])
+
+  // Effect to calculate tax and total whenever the price changes
+  useEffect(() => {
+    const price = parseFloat(formData.price);
+    if (!isNaN(price) && price >= 0) {
+      const taxAmount = price * 0.15;
+      const totalAmount = price + taxAmount;
+      setCalculatedPrice({
+        subtotal: price,
+        tax: taxAmount,
+        total: totalAmount,
+      });
+    } else {
+      setCalculatedPrice({
+        subtotal: 0,
+        tax: 0,
+        total: 0,
+      });
+    }
+  }, [formData.price]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return
+    setImages(Array.from(e.target.files))
   }
 
-  if (id) fetchProduct()
-}, [id])
-// Function to handle file selection
-const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  if (!e.target.files) return
-  setImages(Array.from(e.target.files)) // store selected files
-}
+  const triggerFileInput = () => {
+    document.getElementById("product-image-input")?.click()
+  }
 
-// Function to trigger the hidden file input
-const triggerFileInput = () => {
-  document.getElementById("product-image-input")?.click()
-}
-
-  const handleInputChange = (field: keyof FormData, value: string | boolean) => {
+  const handleInputChange = (field: keyof FormData, value: string | boolean | string[] | any) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }))
   }
 
-const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  if (!id) return;
+  const handleFiles = (selectedFiles: FileList | null) => {
+    if (!selectedFiles) return;
+    setImages((prev) => [...prev, ...Array.from(selectedFiles)]);
+  };
 
-  try {
-    const form = new FormData();
-    form.append("title", formData.title);
-    form.append("description", formData.description);
-    form.append("price", formData.price);
-    form.append("category", formData.category);
-    form.append("featured", String(formData.featured));
-    form.append("status", formData.status);
+  const removeFile = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
 
-    // append images if selected
-    images.forEach((file) => form.append("images", file));
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
 
-    const res = await fetch(`/api/products/${id}`, {
-      method: "PUT",
-      body: form, // send FormData, NOT JSON
-    });
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleFiles(e.dataTransfer.files);
+  };
 
-    if (!res.ok) throw new Error("Failed to update product");
+  const handleCustomChange = (
+    type: "size" | "side" | "material",
+    index: number,
+    value: string
+  ) => {
+    if (type === "size") {
+      const updated = [...customSizes];
+      updated[index] = value;
+      setCustomSizes(updated);
+    } else if (type === "side") {
+      const updated = [...customSides];
+      updated[index] = value;
+      setCustomSides(updated);
+    } else if (type === "material") {
+      const updated = [...customMaterials];
+      updated[index] = value;
+      setCustomMaterials(updated);
+    }
+  };
 
-    alert("تم تعديل المنتج وحفظه في قاعدة البيانات ✅");
-    router.push("/admin/products");
-  } catch (error) {
-    console.error(error);
-    alert("حدث خطأ أثناء تعديل المنتج ❌");
+  const addCustomField = (type: "size" | "side" | "material") => {
+    if (type === "size") setCustomSizes([...customSizes, ""]);
+    if (type === "side") setCustomSides([...customSides, ""]);
+    if (type === "material") setCustomMaterials([...customMaterials, ""]);
+  };
+
+  const removeCustomField = (type: "size" | "side" | "material", index: number) => {
+    if (type === "size") setCustomSizes(customSizes.filter((_, i) => i !== index));
+    if (type === "side") setCustomSides(customSides.filter((_, i) => i !== index));
+    if (type === "material") setCustomMaterials(customMaterials.filter((_, i) => i !== index));
+  };
+
+  const handleQuantityChange = (index: number, field: "quantity" | "price", value: string) => {
+    const newQuantities = [...quantities];
+    newQuantities[index][field] = value;
+
+    const qty = parseInt(newQuantities[index].quantity) || 0;
+    const price = parseFloat(newQuantities[index].price) || 0;
+
+    newQuantities[index].total = calculateTotal(price, qty);
+    setQuantities(newQuantities);
+  };
+
+  const addQuantityRow = () => {
+    setQuantities([...quantities, { quantity: "", price: "", total: 0 }]);
+  };
+
+  const removeQuantityRow = (index: number) => {
+    setQuantities(quantities.filter((_, i) => i !== index));
+  };
+
+  const calculateTotal = (price: number, quantity: number) => {
+    const subtotal = price * quantity;
+    const tax = subtotal * 0.15;
+    return subtotal + tax;
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!id) return
+
+    setUploading(true)
+
+    try {
+      const form = new FormData()
+      form.append("title", formData.title)
+      form.append("description", formData.description)
+      form.append("price", formData.price)
+      form.append("category", formData.category)
+      form.append("featured", String(formData.featured))
+      form.append("status", formData.status)
+
+      // Add options
+      form.append("sizeOptions", JSON.stringify(sizeOptions.concat(customSizes).filter(opt => opt.trim() !== "")))
+      form.append("sideOptions", JSON.stringify(sideOptions.concat(customSides).filter(opt => opt.trim() !== "")))
+      form.append("materialOptions", JSON.stringify(materialOptions.concat(customMaterials).filter(opt => opt.trim() !== "")))
+      
+      // Add quantity options
+      const parsedQuantityOptions = quantities
+        .filter((q) => q.quantity && q.price)
+        .map((q) => ({
+          quantity: parseInt(q.quantity),
+          price: parseFloat(q.price),
+        }));
+      form.append("quantityOptions", JSON.stringify(parsedQuantityOptions))
+
+      // Add images
+      if (images.length > 0) {
+        images.forEach((file) => form.append("images", file))
+      } else {
+        form.append("existingImages", JSON.stringify(existingImages))
+      }
+
+      const res = await fetch(`/api/products/${id}`, {
+        method: "PUT",
+        body: form,
+      })
+
+      if (!res.ok) throw new Error("فشل تعديل المنتج")
+
+      alert("تم تعديل المنتج وحفظه في قاعدة البيانات ✅")
+      router.push("/admin/products")
+    } catch (error) {
+      console.error(error)
+      alert("حدث خطأ أثناء تعديل المنتج ❌")
+    } finally {
+      setUploading(false)
+    }
   }
-};
-
-
-
-  if (loading) return <div className="p-8">جاري تحميل بيانات المنتج...</div>
-  if (!product) return <div className="p-8">المنتج غير موجود</div>
 
   return (
     <div className="p-8">
@@ -199,50 +380,265 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
                     </select>
                   </div>
                 </div>
+
+                {/* Tax and Total Price Display */}
+                {calculatedPrice.subtotal > 0 && (
+                  <div className="bg-gray-100 p-4 rounded-lg text-black">
+                    <h4 className="font-semibold text-sm mb-2">حساب السعر</h4>
+                    <div className="flex justify-between text-sm">
+                      <p>السعر الأساسي:</p>
+                      <p className="font-medium">{calculatedPrice.subtotal.toFixed(2)} ر.س</p>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <p>ضريبة القيمة المضافة (15%):</p>
+                      <p className="font-medium">{calculatedPrice.tax.toFixed(2)} ر.س</p>
+                    </div>
+                    <div className="flex justify-between font-bold text-lg mt-2 pt-2 border-t border-gray-300">
+                      <p>الإجمالي:</p>
+                      <p>{calculatedPrice.total.toFixed(2)} ر.س</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Size Options */}
+            <Card>
+              <CardHeader>
+                <CardTitle>خيارات المقاس</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>المقاسات المتاحة</Label>
+                  <div className="mt-2 space-y-2">
+                    {sizeOptions.map((opt, i) => (
+                      <div key={i} className="flex gap-2">
+                        <Input
+                          value={opt}
+                          placeholder={`خيار مقاس ${i + 1}`}
+                          onChange={(e) => {
+                            const newOptions = [...sizeOptions];
+                            newOptions[i] = e.target.value;
+                            setSizeOptions(newOptions);
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => setSizeOptions(sizeOptions.filter((_, idx) => idx !== i))}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setSizeOptions([...sizeOptions, ""])}
+                    >
+                      + إضافة مقاس آخر
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Side Options */}
+            <Card>
+              <CardHeader>
+                <CardTitle>خيارات الوجه</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>الوجه المتاح</Label>
+                  <div className="mt-2 space-y-2">
+                    {sideOptions.map((opt, i) => (
+                      <div key={i} className="flex gap-2">
+                        <Input
+                          value={opt}
+                          placeholder={`خيار وجه ${i + 1}`}
+                          onChange={(e) => {
+                            const newOptions = [...sideOptions];
+                            newOptions[i] = e.target.value;
+                            setSideOptions(newOptions);
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => setSideOptions(sideOptions.filter((_, idx) => idx !== i))}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setSideOptions([...sideOptions, ""])}
+                    >
+                      + إضافة وجه آخر
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Material Options */}
+            <Card>
+              <CardHeader>
+                <CardTitle>خيارات المادة</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>المواد المتاحة</Label>
+                  <div className="mt-2 space-y-2">
+                    {materialOptions.map((opt, i) => (
+                      <div key={i} className="flex gap-2">
+                        <Input
+                          value={opt}
+                          placeholder={`خيار مادة ${i + 1}`}
+                          onChange={(e) => {
+                            const newOptions = [...materialOptions];
+                            newOptions[i] = e.target.value;
+                            setMaterialOptions(newOptions);
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => setMaterialOptions(materialOptions.filter((_, idx) => idx !== i))}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setMaterialOptions([...materialOptions, ""])}
+                    >
+                      + إضافة مادة أخرى
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quantity Options */}
+            <Card>
+              <CardHeader>
+                <CardTitle>خيارات الكمية والأسعار</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {quantities.map((q, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        placeholder="الكمية"
+                        value={q.quantity}
+                        onChange={(e) => handleQuantityChange(index, "quantity", e.target.value)}
+                      />
+                      <Input
+                        type="number"
+                        placeholder="السعر للوحدة"
+                        value={q.price}
+                        onChange={(e) => handleQuantityChange(index, "price", e.target.value)}
+                      />
+                      <span className="font-medium w-28 text-center">
+                        {q.total > 0 ? `${q.total.toFixed(2)} ر.س` : "--"}
+                      </span>
+                      {index > 0 && (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => removeQuantityRow(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex items-center gap-2"
+                    onClick={addQuantityRow}
+                  >
+                    + إضافة كمية أخرى
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
             {/* Image Upload */}
             <Card>
-  <CardHeader>
-    <CardTitle>صور المنتج</CardTitle>
-  </CardHeader>
-  <CardContent>
-    <div
-      className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer"
-      onClick={triggerFileInput} // clicking anywhere opens file selector
-    >
-      <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-      <p className="text-muted-foreground mb-4">اسحب الصور هنا أو انقر للتحديد</p>
-      <Button type="button" variant="outline" onClick={triggerFileInput}>
-        اختيار الصور
-      </Button>
+              <CardHeader>
+                <CardTitle>صور المنتج</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer"
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  onClick={triggerFileInput}
+                >
+                  <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground mb-4">اسحب الصور هنا أو انقر للتحديد</p>
+                  <Button type="button" variant="outline" onClick={triggerFileInput}>
+                    اختيار الصور
+                  </Button>
 
-      {/* Preview selected images */}
-      {images.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-4 justify-center">
-          {images.map((file, idx) => (
-            <img
-              key={idx}
-              src={URL.createObjectURL(file)}
-              alt={file.name}
-              className="w-24 h-24 object-cover rounded-md border"
-            />
-          ))}
-        </div>
-      )}
-      <input
-        type="file"
-        id="product-image-input"
-        className="hidden"
-        accept="image/*"
-        multiple
-        onChange={handleImageChange}
-      />
-    </div>
-  </CardContent>
-</Card>
+                  {/* Preview selected images OR existing */}
+                  <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {images.length > 0
+                      ? images.map((file, idx) => (
+                          <div key={idx} className="relative group">
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={file.name}
+                              className="w-full h-24 object-cover rounded-lg"
+                            />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeFile(idx);
+                              }}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))
+                      : existingImages.map((url, idx) => (
+                          <div key={idx} className="relative">
+                            <img
+                              src={url}
+                              alt={`existing-${idx}`}
+                              className="w-full h-24 object-cover rounded-lg"
+                            />
+                          </div>
+                        ))}
+                  </div>
 
+                  <input
+                    type="file"
+                    id="product-image-input"
+                    className="hidden"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageChange}
+                    ref={inputRef}
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Sidebar */}
@@ -284,7 +680,15 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
               <CardContent>
                 <div className="space-y-3">
                   <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-                    <span className="text-muted-foreground text-sm">صورة المنتج</span>
+                    {existingImages[0] ? (
+                      <img
+                        src={existingImages[0]}
+                        alt="معاينة"
+                        className="object-cover w-full h-full rounded-lg"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground text-sm">صورة المنتج</span>
+                    )}
                   </div>
                   <h3 className="font-semibold">{formData.title || "اسم المنتج"}</h3>
                   <p className="text-sm text-muted-foreground line-clamp-2">
@@ -293,17 +697,37 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
                   <div className="text-lg font-bold text-brand-yellow">
                     {formData.price ? `${formData.price} ر.س` : "السعر"}
                   </div>
+                  {existingImages.length > 1 && (
+                    <div className="text-xs text-muted-foreground">
+                      + {existingImages.length - 1} صورة إضافية
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
             {/* Action Buttons */}
             <div className="space-y-3">
-              <Button type="submit" className="w-full bg-brand-blue hover:bg-brand-blue/90">
-                <Save className="h-4 w-4 ml-2" />
-                حفظ التعديلات
+              <Button 
+                type="submit" 
+                className="w-full bg-brand-blue hover:bg-brand-blue/90"
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <>جاري الحفظ...</>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 ml-2" />
+                    حفظ التعديلات
+                  </>
+                )}
               </Button>
-              <Button type="button" variant="outline" className="w-full" onClick={() => router.push("/admin/products")}>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => router.push("/admin/products")}
+              >
                 إلغاء
               </Button>
             </div>

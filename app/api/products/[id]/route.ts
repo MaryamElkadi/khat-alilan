@@ -1,70 +1,105 @@
-// app/api/products/[id]/route.ts
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import Product from "@/models/Product.ts";
-import formidable from "formidable";
+import Product from "@/models/Product";
+import { ObjectId } from "mongodb";
 
-type Params = { params: { id: string } };
-
-export async function GET(req: Request) {
+export async function GET(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
   try {
+    console.log("Fetching product with ID:", params.id);
+
+    if (!params.id || params.id === "undefined") {
+      return NextResponse.json({ error: "Product ID is required" }, { status: 400 });
+    }
+
     await connectDB();
+    
+    // Using the Product model directly is simpler and more reliable
+    const product = await Product.findById(params.id);
 
-    const url = new URL(req.url);
-    const featured = url.searchParams.get("featured");
+    if (!product) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
 
-    // Only filter if featured=true
-    const filter = featured === "true" ? { featured: true } : {};
-
-    const products = await Product.find(filter);
-    return NextResponse.json(products, { status: 200 });
+    return NextResponse.json(product);
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });
+    console.error("Error fetching product:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
-
-
-export async function PUT(req: Request, context: { params: { id: string } }) {
-  await connectDB();
-  const { params } = context;
-
-  const form = new formidable.IncomingForm();
-  form.keepExtensions = true;
-
-  const data: any = await new Promise((resolve, reject) => {
-    form.parse(req as any, (err, fields, files) => {
-      if (err) reject(err);
-      else resolve({ fields, files });
-    });
-  });
-
-  const updateData: any = {
-    ...data.fields,
-    price: Number(data.fields.price),
-    featured: data.fields.featured === "true",
-  };
-
-  // If images uploaded, save their paths (implement your own storage logic)
-  if (data.files.images) {
-    const files = Array.isArray(data.files.images)
-      ? data.files.images
-      : [data.files.images];
-    updateData.image = files.map((f: any) => `/uploads/${f.newFilename}`);
-  }
-
-  const updatedProduct = await Product.findByIdAndUpdate(params.id, updateData, { new: true });
-  if (!updatedProduct)
-    return NextResponse.json({ error: "Product not found" }, { status: 404 });
-
-  return NextResponse.json(updatedProduct, { status: 200 });
-}
-
-
-export async function DELETE(req: Request, context: Params) {
+export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
-    const { params } = await context; // ✅ await context first
     await connectDB();
+    const id = params.id;
+
+    const formData = await req.formData();
+
+    const title = formData.get("title") as string;
+    const description = formData.get("description") as string;
+    const price = parseFloat(formData.get("price") as string) || 0;
+    const category = formData.get("category") as string;
+    const featured = formData.get("featured") === "true";
+    const status = formData.get("status") as string;
+
+    const sizeOptions = JSON.parse(formData.get("sizeOptions") as string || "[]");
+    const sideOptions = JSON.parse(formData.get("sideOptions") as string || "[]");
+    const materialOptions = JSON.parse(formData.get("materialOptions") as string || "[]");
+    const quantityOptions = JSON.parse(formData.get("quantityOptions") as string || "[]");
+
+    const images: string[] = [];
+
+    if (formData.has("existingImages")) {
+      images.push(...JSON.parse(formData.get("existingImages") as string || "[]"));
+    }
+
+    // handle uploaded images if needed
+    const uploadedImages = formData.getAll("images") as File[];
+    uploadedImages.forEach(file => {
+      // Here you’d upload file somewhere (S3, cloudinary, etc.)
+      // For now, push placeholder
+      images.push(`/uploads/${file.name}`);
+    });
+
+    const result = await Product.findByIdAndUpdate(
+      id,
+      {
+        title,
+        description,
+        price,
+        category,
+        featured,
+        status,
+        sizeOptions,
+        sideOptions,
+        materialOptions,
+        quantityOptions,
+        image: images,
+      },
+      { new: true }
+    );
+
+    if (!result) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Error updating product:", error);
+    return NextResponse.json({ error: "Error updating product" }, { status: 500 });
+  }
+}
+
+
+export async function DELETE(req: Request, context: { params: { id: string } }) {
+  try {
+    const { params } = await context;
+    await connectDB();
+
+    if (!params.id || params.id === "undefined") {
+      return NextResponse.json({ error: "Product ID is required" }, { status: 400 });
+    }
 
     const deletedProduct = await Product.findByIdAndDelete(params.id);
 
@@ -74,7 +109,7 @@ export async function DELETE(req: Request, context: Params) {
 
     return NextResponse.json({ message: "Product deleted successfully" }, { status: 200 });
   } catch (error) {
-    console.error(error);
+    console.error("DELETE product error:", error);
     return NextResponse.json({ error: "Failed to delete product" }, { status: 500 });
   }
 }

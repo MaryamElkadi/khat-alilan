@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Star, Clock, Palette, Globe, Camera, Megaphone, PenTool, Monitor } from "lucide-react"
 import {  Brush, Scissors, Sparkles } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export default function ServicesPage() {
   const searchParams = useSearchParams()
@@ -15,7 +16,10 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState(true)
   const [activeService, setActiveService] = useState<string | null>(null)
   const serviceRefs = useRef<{[key: string]: HTMLDivElement | null}>({})
+
+  const router = useRouter()
 const iconMap: Record<string, React.ElementType> = {
+
 
   brush: Brush,
   scissors: Scissors,
@@ -51,7 +55,7 @@ interface Service {
   title: string
   description: string
   icon: string
-  price: string
+  price: number
   duration: string
   rating: number
   features: string[]
@@ -146,8 +150,12 @@ const iconMap: Record<string, any> = {
 
                     </div>
 
-                    <Button className="w-full bg-brand-yellow text-black hover:bg-brand-yellow/90">طلب الخدمة</Button>
-                  </CardContent>
+<Button
+  onClick={() => router.push(`/request-service?id=${service._id}`)}
+  className="w-full bg-brand-yellow text-black hover:bg-brand-yellow/90"
+>
+  طلب الخدمة
+</Button>                  </CardContent>
                 </Card>
               </motion.div>
             )

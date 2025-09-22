@@ -14,15 +14,14 @@ export async function POST(req: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const fileName = Date.now() + "-" + file.name;
+    const fileName = `${Date.now()}-${file.name}`;
     const filePath = path.join(process.cwd(), "public/uploads", fileName);
 
     await writeFile(filePath, buffer);
 
-    // Return public path (relative)
-    return NextResponse.json({ path: `/uploads/${fileName}` });
-  } catch (error) {
-    console.error("Upload error:", error);
+    return NextResponse.json({ path: `/uploads/${fileName}` }); // ✅ Save real path
+  } catch (err) {
+    console.error("Upload error:", err);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }

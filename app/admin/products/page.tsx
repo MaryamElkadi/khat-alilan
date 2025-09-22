@@ -15,7 +15,6 @@ export default function ProductsManagement() {
   const { products, setProducts } = useProducts()
   const router = useRouter()
 
-  // ✅ Fetch products from API when component mounts
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -40,29 +39,23 @@ export default function ProductsManagement() {
       product.category.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  // حذف المنتج
   const handleDelete = async (id: string) => {
     if (confirm("هل أنت متأكد من حذف هذا المنتج؟")) {
-      // حذف من قاعدة البيانات
       await fetch(`/api/products/${id}`, { method: "DELETE" })
-      // تحديث الحالة
       setProducts(products.filter((p) => p._id !== id))
     }
   }
 
   const handleView = (id: string) => {
-    router.push(`/admin/products/${id}`)
+    router.push(`/products/${id}`)
   }
 
   const handleEdit = (id: string) => {
     router.push(`/admin/products/edit/${id}`)
   }
 
-
-
   return (
     <div className="p-8">
-      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-brand-blue">إدارة المنتجات</h1>
@@ -77,7 +70,6 @@ export default function ProductsManagement() {
         </Button>
       </div>
 
-      {/* Search */}
       <Card className="mb-6">
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
@@ -95,11 +87,10 @@ export default function ProductsManagement() {
         </CardContent>
       </Card>
 
-      {/* Products Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredProducts.map((product, index) => (
           <motion.div
-            key={product.id}
+            key={product._id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
@@ -107,10 +98,14 @@ export default function ProductsManagement() {
             <Card className="overflow-hidden hover:shadow-lg transition-shadow">
               <div className="relative">
                 <img
-                  src={product.image || "/placeholder.svg"}
-                  alt={product.title}
-                  className="w-full h-48 object-cover"
-                />
+  src={
+    Array.isArray(product.image)
+      ? product.image[0] // first image
+      : product.image || "/placeholder.svg"
+  }
+  alt={product.title}
+  className="w-full h-48 object-cover"
+/>
                 <div className="absolute top-4 right-4 flex gap-2">
                   {product.featured && (
                     <Badge className="bg-brand-yellow text-black">
@@ -140,40 +135,36 @@ export default function ProductsManagement() {
 
               <CardContent>
                 <p className="text-muted-foreground text-sm mb-4 line-clamp-2">{product.description}</p>
-
-                <div className="flex items-center justify-between mb-4">
+                
+                {product.quantityOptions && product.quantityOptions.length > 0 && (
+                  <div className="mt-2">
+                      <span className="text-xs text-muted-foreground">خيارات الكمية:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                          {product.quantityOptions.map(option => (
+                              <Badge key={option} variant="secondary" className="text-xs">
+                                  {option.toLocaleString()}
+                              </Badge>
+                          ))}
+                      </div>
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between mt-4 mb-4">
                   <div className="text-2xl font-bold text-brand-yellow">{product.price.toLocaleString()} ر.س</div>
-                  <div className="text-sm text-muted-foreground">{product.sales} مبيعة</div>
                 </div>
 
                 <div className="flex gap-2">
-                 <Button
-  size="sm"
-  variant="outline"
-  className="flex-1 bg-transparent"
-  onClick={() => handleView(product._id)}
->
-  <Eye className="h-4 w-4 ml-1" />
-  عرض
-</Button>
-<Button
-  size="sm"
-  variant="outline"
-  className="flex-1 bg-transparent"
-  onClick={() => handleEdit(product._id)}
->
-  <Edit className="h-4 w-4 ml-1" />
-  تحرير
-</Button>
-<Button
-  size="sm"
-  variant="outline"
-  className="text-red-500 hover:text-red-600 bg-transparent"
-  onClick={() => handleDelete(product._id)}
->
-  <Trash2 className="h-4 w-4" />
-</Button>
-
+                  <Button size="sm" variant="outline" className="flex-1 bg-transparent" onClick={() => handleView(product._id)}>
+                    <Eye className="h-4 w-4 ml-1" />
+                    عرض
+                  </Button>
+                  <Button size="sm" variant="outline" className="flex-1 bg-transparent" onClick={() => handleEdit(product._id)}>
+                    <Edit className="h-4 w-4 ml-1" />
+                    تحرير
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-red-500 hover:text-red-600 bg-transparent" onClick={() => handleDelete(product._id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -181,7 +172,6 @@ export default function ProductsManagement() {
         ))}
       </div>
 
-      {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
         <Card>
           <CardContent className="p-6 text-center">

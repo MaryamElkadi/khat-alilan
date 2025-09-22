@@ -10,6 +10,7 @@ import { FloatingActionButton } from "@/components/floating-action-button"
 import { ScrollToTop } from "@/components/scroll-to-top"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
+import { ToastProvider } from "@/components/ToastProvider" // ✅ استدعاء
 import "./globals.css"
 
 const notoSansArabic = Noto_Sans_Arabic({
@@ -26,9 +27,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ar" dir="rtl" className="dark">
       <body className={`font-arabic ${notoSansArabic.variable} antialiased`}>
@@ -41,6 +40,7 @@ export default function RootLayout({
               <Toaster />
               <FloatingActionButton />
               <ScrollToTop />
+              <ToastProvider /> {/* ✅ هنا */}
             </CartProvider>
           </AuthProvider>
         </AdminAuthProvider>

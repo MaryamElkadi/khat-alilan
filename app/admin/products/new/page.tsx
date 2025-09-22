@@ -1,8 +1,8 @@
 "use client";
 
 import type React from "react";
-import { useState, useRef } from "react";
-import { Save, ArrowRight, Upload } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Save, ArrowRight, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useRouter } from "next/navigation";
 import { useProducts } from "@/app/admin/context/products";
-
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 const categories = [
   "تصميم جرافيك",
   "إعلانات وسائل التواصل",
@@ -20,22 +26,212 @@ const categories = [
   "التصوير الفوتوغرافي",
   "الهوية التجارية",
   "التسويق الرقمي",
+  "طباعة رقمية", 
+  "هدايا اعلانية"
 ];
+
+
+// ✅ Make ProductOptions a named component, not default
+function ProductOptions() {
+  const sizeOptions = ["A4", "A3", "A5"];
+  const sideOptions = ["وجه واحد", "وجهين"];
+  const materialOptions = ["ورق عادي", "ورق لامع", "بلاستيك"];
+  const quantityOptions = ["100", "200", "500", "1000"];
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* ✅ Size Select */}
+      <Select>
+        <SelectTrigger>
+          <SelectValue placeholder="اختر المقاس" />
+        </SelectTrigger>
+        <SelectContent>
+        {sizeOptions.map((size) => (
+  <SelectItem key={size} value={size}>
+    {size}
+  </SelectItem>
+))}
+
+        </SelectContent>
+      </Select>
+
+      {/* ✅ Side Select */}
+      <Select>
+        <SelectTrigger>
+          <SelectValue placeholder="اختر الوجه" />
+        </SelectTrigger>
+        <SelectContent>
+          {sideOptions.map((side) => (
+  <SelectItem key={side} value={side}>
+    {side}
+  </SelectItem>
+))}
+        </SelectContent>
+      </Select>
+
+      {/* ✅ Material Select */}
+      <Select>
+        <SelectTrigger>
+          <SelectValue placeholder="اختر المادة" />
+        </SelectTrigger>
+        <SelectContent>
+         {materialOptions.map((material) => (
+  <SelectItem key={material} value={material}>
+    {material}
+  </SelectItem>
+))}
+        </SelectContent>
+      </Select>
+
+      {/* ✅ Quantity Select */}
+      <Select>
+        <SelectTrigger>
+          <SelectValue placeholder="اختر الكمية" />
+        </SelectTrigger>
+        <SelectContent>
+          {quantityOptions.map((option, i) => (
+            <SelectItem key={i} value={option}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 export default function NewProduct() {
   const router = useRouter();
   const { products, setProducts } = useProducts();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+// ✨ State جديدة للمخصص
+const [customSizes, setCustomSizes] = useState<string[]>([""]);
+const [customSides, setCustomSides] = useState<string[]>([""]);
+const [customMaterials, setCustomMaterials] = useState<string[]>([""]);
+const [sizeOptions, setSizeOptions] = useState<string[]>([
+  "A4",
+  "A3",
+  "A5",
+]);
 
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    price: "",
-    category: "",
-    featured: false,
-    status: "مسودة",
+const [sideOptions, setSideOptions] = useState<string[]>([
+  "one side",
+  "two side",
+]);
+
+const [materialOptions, setMaterialOptions] = useState<string[]>([
+  "ورق عادي",
+  "ورق لامع",
+  "بلاستيك",
+]);
+const [formData, setFormData] = useState({
+  title: "",
+  description: "",
+  price: "",
+  category: "",
+  featured: false,
+  status: "مسودة",
+  size: "",
+  sizeCustom: "",
+  side: "",
+  sideCustom: "",
+  material: "",
+  materialCustom: "",
+});
+
+
+
+
+  // State for tax and total price calculation
+  const [calculatedPrice, setCalculatedPrice] = useState({
+    subtotal: 0,
+    tax: 0,
+    total: 0,
   });
+type QuantityRow = {
+  quantity: string;
+  price: string; // أضف السعر
+  total: number;
+};
+
+const [quantities, setQuantities] = useState<QuantityRow[]>([
+  { quantity: "", price: "", total: 0 },
+]);
+
+  // Effect to calculate tax and total whenever the price changes
+  useEffect(() => {
+    const price = parseFloat(formData.price);
+    if (!isNaN(price) && price >= 0) {
+      const taxAmount = price * 0.15;
+      const totalAmount = price + taxAmount;
+      setCalculatedPrice({
+        subtotal: price,
+        tax: taxAmount,
+        total: totalAmount,
+      });
+    } else {
+      setCalculatedPrice({
+        subtotal: 0,
+        tax: 0,
+        total: 0,
+      });
+    }
+  }, [formData.price]);
+
+const handleQuantityChange = (index: number, field: "quantity" | "price", value: string) => {
+  const newQuantities = [...quantities];
+  newQuantities[index][field] = value;
+
+  const qty = parseInt(newQuantities[index].quantity) || 0;
+  const price = parseFloat(newQuantities[index].price) || 0;
+
+  newQuantities[index].total = calculateTotal(price, qty);
+  setQuantities(newQuantities);
+};
+const handleCustomChange = (
+  type: "size" | "side" | "material",
+  index: number,
+  value: string
+) => {
+  if (type === "size") {
+    const updated = [...customSizes];
+    updated[index] = value;
+    setCustomSizes(updated);
+  } else if (type === "side") {
+    const updated = [...customSides];
+    updated[index] = value;
+    setCustomSides(updated);
+  } else if (type === "material") {
+    const updated = [...customMaterials];
+    updated[index] = value;
+    setCustomMaterials(updated);
+  }
+};
+
+const addCustomField = (type: "size" | "side" | "material") => {
+  if (type === "size") setCustomSizes([...customSizes, ""]);
+  if (type === "side") setCustomSides([...customSides, ""]);
+  if (type === "material") setCustomMaterials([...customMaterials, ""]);
+};
+
+// دالة لحذف حقل
+const removeCustomField = (type: "size" | "side" | "material", index: number) => {
+  if (type === "size") setCustomSizes(customSizes.filter((_, i) => i !== index));
+  if (type === "side") setCustomSides(customSides.filter((_, i) => i !== index));
+  if (type === "material") setCustomMaterials(customMaterials.filter((_, i) => i !== index));
+};
+
+// ✨ إضافة صف كمية جديد
+const addQuantityRow = () => {
+  setQuantities([...quantities, { quantity: "", total: 0 }]);
+};
+
+// ✨ حذف صف كمية
+const removeQuantityRow = (index: number) => {
+  setQuantities(quantities.filter((_, i) => i !== index));
+};
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -44,6 +240,10 @@ export default function NewProduct() {
   const handleFiles = (selectedFiles: FileList | null) => {
     if (!selectedFiles) return;
     setFiles((prev) => [...prev, ...Array.from(selectedFiles)]);
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -56,43 +256,41 @@ export default function NewProduct() {
     e.stopPropagation();
     handleFiles(e.dataTransfer.files);
   };
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setUploading(true);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const productFormData = new FormData();
+  productFormData.append("title", formData.title);
+  productFormData.append("price", formData.price);
+  productFormData.append("description", formData.description); 
+  productFormData.append("category", formData.category);
+  productFormData.append("featured", String(formData.featured));
+productFormData.append("sizeOptions", JSON.stringify(sizeOptions.concat(customSizes)));
+productFormData.append("sideOptions", JSON.stringify(sideOptions.concat(customSides)));
+productFormData.append("materialOptions", JSON.stringify(materialOptions.concat(customMaterials)));
 
-    let imagePath = "/placeholder.svg"; // default
 
-    // Upload first image if selected
-    if (files[0]) {
-      const formDataFile = new FormData();
-      formDataFile.append("file", files[0]);
+  // ✨ جهز بيانات الكمية مع السعر
+const parsedQuantityOptions = quantities
+  .filter((q) => q.quantity && q.price)
+  .map((q) => ({
+    quantity: parseInt(q.quantity),
+    price: parseFloat(q.price),
+    total: q.total,
+  }));
 
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formDataFile,
-      });
+productFormData.append("quantityOptions", JSON.stringify(parsedQuantityOptions));
 
-      const uploadData = await uploadRes.json();
-      if (uploadRes.ok) {
-        imagePath = uploadData.path; // ✅ this will be "/uploads/filename.png"
-      }
-    }
 
-    const newProduct = {
-      title: formData.title,
-      description: formData.description,
-      price: Number(formData.price),
-      category: formData.category,
-      featured: formData.featured,
-      status: formData.status,
-      sales: 0,
-      image: imagePath, // ✅ real path
-    };
+  files.forEach((file) => {
+    productFormData.append("images", file);
+  });
 
+  try {
     const res = await fetch("/api/products", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newProduct),
+      body: productFormData,
     });
 
     if (res.ok) {
@@ -100,7 +298,19 @@ export default function NewProduct() {
     } else {
       alert("فشل في الحفظ");
     }
-  };
+  } catch (error) {
+    console.error("Error saving product:", error);
+    alert("حدث خطأ أثناء حفظ المنتج");
+  } finally {
+    setUploading(false);
+  }
+};
+
+const calculateTotal = (price: number, quantity: number) => {
+  const subtotal = price * quantity;
+  const tax = subtotal * 0.15;
+  return subtotal + tax;
+};
 
   return (
     <div className="p-8">
@@ -176,8 +386,190 @@ export default function NewProduct() {
                     </select>
                   </div>
                 </div>
+
+                {/* Tax and Total Price Display */}
+                {calculatedPrice.subtotal > 0 && (
+                  <div className="bg-gray-100 p-4 rounded-lg text-black">
+                    <h4 className="font-semibold text-sm mb-2">حساب السعر</h4>
+                    <div className="flex justify-between text-sm">
+                      <p>السعر الأساسي:</p>
+                      <p className="font-medium">{calculatedPrice.subtotal.toFixed(2)} ر.س</p>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <p>ضريبة القيمة المضافة (15%):</p>
+                      <p className="font-medium">{calculatedPrice.tax.toFixed(2)} ر.س</p>
+                    </div>
+                    <div className="flex justify-between font-bold text-lg mt-2 pt-2 border-t border-gray-300">
+                      <p>الإجمالي:</p>
+                      <p>{calculatedPrice.total.toFixed(2)} ر.س</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
+
+   
+<div>
+  <Label htmlFor="side">المقاس *</Label>
+  <select
+    id="size"
+    value={formData.size || ""}
+    onChange={(e) => handleInputChange("size", e.target.value)}
+    className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+  >
+    <option value="">اختر المقاس</option>
+  {sizeOptions.filter(opt => opt !== "").map((opt, i) => (
+  <option key={i} value={opt}>
+    {opt}
+  </option>
+))}
+    <option value="مخصص">مخصص (أدخل يدوياً)</option>
+  </select>
+
+  {formData.size === "مخصص" && (
+    <div className="mt-2 space-y-2">
+      {sizeOptions.map((opt, i) => (
+        <div key={i} className="flex gap-2">
+          <Input
+            value={opt}
+            placeholder={`خيار مقاس ${i + 1}`}
+            onChange={(e) => {
+              const newOptions = [...sizeOptions];
+              newOptions[i] = e.target.value;
+              setSizeOptions(newOptions);
+            }}
+          />
+          <Button
+            type="button"
+            variant="destructive"
+            size="icon"
+            onClick={() =>
+              setSizeOptions(sideOptions.filter((_, idx) => idx !== i))
+            }
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setSizeOptions([...sideOptions, ""])}
+      >
+        + إضافة مقاس آخر
+      </Button>
+    </div>
+  )}
+</div>
+
+
+{/* الحجم */}
+<div>
+  <Label htmlFor="side">الحجم *</Label>
+  <select
+    id="side"
+    value={formData.side || ""}
+    onChange={(e) => handleInputChange("side", e.target.value)}
+    className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+  >
+    <option value="">اختر الحجم</option>
+  {sideOptions.filter(opt => opt !== "").map((opt, i) => (
+  <option key={i} value={opt}>
+    {opt}
+  </option>
+))}
+    <option value="مخصص">مخصص (أدخل يدوياً)</option>
+  </select>
+
+  {formData.side === "مخصص" && (
+    <div className="mt-2 space-y-2">
+      {sideOptions.map((opt, i) => (
+        <div key={i} className="flex gap-2">
+          <Input
+            value={opt}
+            placeholder={`خيار حجم ${i + 1}`}
+            onChange={(e) => {
+              const newOptions = [...sideOptions];
+              newOptions[i] = e.target.value;
+              setSideOptions(newOptions);
+            }}
+          />
+          <Button
+            type="button"
+            variant="destructive"
+            size="icon"
+            onClick={() =>
+              setSideOptions(sideOptions.filter((_, idx) => idx !== i))
+            }
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setSideOptions([...sideOptions, ""])}
+      >
+        + إضافة حجم آخر
+      </Button>
+    </div>
+  )}
+</div>
+
+{/* المادة */}
+<div>
+  <Label htmlFor="material">المادة *</Label>
+  <select
+    id="material"
+    value={formData.material || ""}
+    onChange={(e) => handleInputChange("material", e.target.value)}
+    className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+  >
+    <option value="">اختر المادة</option>
+  {materialOptions.filter(opt => opt !== "").map((opt, i) => (
+  <option key={i} value={opt}>
+    {opt}
+  </option>
+))}
+    <option value="مخصص">مخصص (أدخل يدوياً)</option>
+  </select>
+
+  {formData.material === "مخصص" && (
+    <div className="mt-2 space-y-2">
+      {materialOptions.map((opt, i) => (
+        <div key={i} className="flex gap-2">
+          <Input
+            value={opt}
+            placeholder={`خيار مادة ${i + 1}`}
+            onChange={(e) => {
+              const newOptions = [...materialOptions];
+              newOptions[i] = e.target.value;
+              setMaterialOptions(newOptions);
+            }}
+          />
+          <Button
+            type="button"
+            variant="destructive"
+            size="icon"
+            onClick={() =>
+              setMaterialOptions(materialOptions.filter((_, idx) => idx !== i))
+            }
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setMaterialOptions([...materialOptions, ""])}
+      >
+        + إضافة مادة أخرى
+      </Button>
+    </div>
+  )}
+</div>
 
             {/* Image Upload */}
             <Card>
@@ -207,15 +599,29 @@ export default function NewProduct() {
 
                   {/* Preview selected images */}
                   {files.length > 0 && (
-                    <div className="mt-4 grid grid-cols-3 gap-2">
-                      {files.map((file, idx) => (
-                        <img
-                          key={idx}
-                          src={URL.createObjectURL(file)}
-                          alt={file.name}
-                          className="w-full h-24 object-cover rounded-lg"
-                        />
-                      ))}
+                    <div className="mt-6">
+                      <h3 className="text-sm font-medium mb-3">الصور المحددة:</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {files.map((file, idx) => (
+                          <div key={idx} className="relative group">
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={file.name}
+                              className="w-full h-24 object-cover rounded-lg"
+                            />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeFile(idx);
+                              }}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -280,15 +686,74 @@ export default function NewProduct() {
                   <div className="text-lg font-bold text-brand-yellow">
                     {formData.price ? `${formData.price} ر.س` : "السعر"}
                   </div>
+                  {files.length > 1 && (
+                    <div className="text-xs text-muted-foreground">
+                      + {files.length - 1} صورة إضافية
+                    </div>
+                  )}
                 </div>
+            <div>
+  <Label>الكميات مع الأسعار</Label>
+  <div className="space-y-3 mt-3">
+    {quantities.map((q, index) => (
+      <div key={index} className="flex items-center gap-3">
+        <Input
+          type="number"
+          placeholder="الكمية"
+          value={q.quantity}
+          onChange={(e) => handleQuantityChange(index, "quantity", e.target.value)}
+        />
+        <Input
+          type="number"
+          placeholder="السعر للوحدة"
+          value={q.price}
+          onChange={(e) => handleQuantityChange(index, "price", e.target.value)}
+        />
+        {/* <span className="font-medium w-28 text-center">
+          {q.total > 0 ? `${q.total.toFixed(2)} ر.س` : "--"}
+        </span> */}
+        {index > 0 && (
+          <Button
+            type="button"
+            variant="destructive"
+            size="icon"
+            onClick={() => removeQuantityRow(index)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    ))}
+    <Button
+      type="button"
+      variant="outline"
+      className="flex items-center gap-2"
+      onClick={addQuantityRow}
+    >
+      + إضافة كمية أخرى
+    </Button>
+  </div>
+</div>
+
+
               </CardContent>
             </Card>
 
             {/* Action Buttons */}
             <div className="space-y-3">
-              <Button type="submit" className="w-full bg-brand-blue hover:bg-brand-blue/90">
-                <Save className="h-4 w-4 ml-2" />
-                حفظ المنتج
+              <Button 
+                type="submit" 
+                className="w-full bg-brand-blue hover:bg-brand-blue/90"
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <>جاري الحفظ...</>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 ml-2" />
+                    حفظ المنتج
+                  </>
+                )}
               </Button>
               <Button type="button" variant="outline" className="w-full bg-transparent" onClick={() => router.back()}>
                 إلغاء

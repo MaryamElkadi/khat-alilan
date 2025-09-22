@@ -1,11 +1,26 @@
-import mongoose, { Schema, models } from "mongoose";
+// models/Product.ts
+import mongoose from "mongoose";
 
-const productSchema = new Schema({
-  title: { type: String, required: true },
+const ProductSchema = new mongoose.Schema({
+  title: { type: String, required: true },  
+  description: { type: String, required: true },
   price: { type: Number, required: true },
+  image: { type: [String], default: ["/placeholder.svg"] },
   featured: { type: Boolean, default: false },
-  status: { type: String, enum: ["نشط", "مسودة"], default: "نشط" },
+  category: { type: String, required: true },
+
+  // خيارات مرنة حسب المنتج
+  sizeOptions: { type: [String], default: [] },     
+  sideOptions: { type: [String], default: [] },     
+  materialOptions: { type: [String], default: [] }, 
+  quantityOptions: { 
+    type: [{
+      quantity: { type: Number, required: true },
+      price: { type: Number, required: true }
+    }], 
+    default: [] 
+  },
+
 }, { timestamps: true });
 
-const Product = models.Product || mongoose.model("Product", productSchema);
-export default Product;
+export default mongoose.models.Product || mongoose.model("Product", ProductSchema);
