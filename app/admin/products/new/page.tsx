@@ -164,25 +164,33 @@ const [quantities, setQuantities] = useState<QuantityRow[]>([
   { quantity: "", price: "", total: 0 },
 ]);
 
-  // Effect to calculate tax and total whenever the price changes
-  useEffect(() => {
-    const price = parseFloat(formData.price);
-    if (!isNaN(price) && price >= 0) {
-      const taxAmount = price * 0.15;
-      const totalAmount = price + taxAmount;
-      setCalculatedPrice({
-        subtotal: price,
-        tax: taxAmount,
-        total: totalAmount,
-      });
-    } else {
-      setCalculatedPrice({
-        subtotal: 0,
-        tax: 0,
-        total: 0,
-      });
-    }
-  }, [formData.price]);
+  // ✅ تحديث useEffect لحساب السعر مع الإضافات
+useEffect(() => {
+  const basePrice = parseFloat(formData.price) || 0;
+
+  // نحدد الاختيارات الحالية من state
+  const selectedSize = sizeOptions.find(opt => opt.name === formData.size);
+  const selectedSide = sideOptions.find(opt => opt.name === formData.side);
+  const selectedMaterial = materialOptions.find(opt => opt.name === formData.material);
+
+  // نحسب الإضافات
+  const sizeAddition = selectedSize ? parseFloat(selectedSize.priceAddition) || 0 : 0;
+  const sideAddition = selectedSide ? parseFloat(selectedSide.priceAddition) || 0 : 0;
+  const materialAddition = selectedMaterial ? parseFloat(selectedMaterial.priceAddition) || 0 : 0;
+
+  // المجموع قبل الضريبة
+  const subtotal = basePrice + sizeAddition + sideAddition + materialAddition;
+
+  // الضريبة
+  const taxAmount = subtotal * 0.15;
+  const totalAmount = subtotal + taxAmount;
+
+  setCalculatedPrice({
+    subtotal,
+    tax: taxAmount,
+    total: totalAmount,
+  });
+}, [formData.price, formData.size, formData.side, formData.material, sizeOptions, sideOptions, materialOptions]);
 
 const handleQuantityChange = (index: number, field: "quantity" | "price", value: string) => {
   const newQuantities = [...quantities];

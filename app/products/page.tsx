@@ -7,7 +7,7 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { useCart } from "@/lib/cart-context"
+import { useCart } from "@/lib/CartProvider"
 import { useRouter } from "next/navigation" 
 import type { Product } from "@/lib/types"
 
@@ -19,7 +19,7 @@ const categories = [
   "طباعة ونشر",
   "التصوير الفوتوغرافي",
   "هدايا إعلانية",    
-  "طباعة الرقمية",  
+  "طباعة رقمية",  
 ]
 
 export default function ProductsPage() {

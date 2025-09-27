@@ -12,26 +12,26 @@ export default function OrdersManagement() {
   const [orders, setOrders] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
-const [editOrder, setEditOrder] = useState<any | null>(null);
-
+  const [editOrder, setEditOrder] = useState<any | null>(null);
   const [showForm, setShowForm] = useState(false);
-const [newOrder, setNewOrder] = useState({
-  customer: "",
-  phone: "",
-  email: "",
-  notes: "",
-  paymentMethod: "cash", // أو أي قيمة افتراضية
-  items: [
-    {
-      product: "",        // ObjectId من المنتج/الخدمة
-      modelType: "Service", // أو "Product"
-      price: 0,
-      quantity: 1,
-    },
-  ],
-  status: "قيد التنفيذ",
-})
 
+  const [newOrder, setNewOrder] = useState({
+    customer: "",
+    phone: "",
+    email: "",
+    notes: "",
+    paymentMethod: "cash",
+    items: [
+      {
+        product: "",
+        modelType: "Service",
+        price: 0,
+        quantity: 1,
+        designFile: "", // ✅ تصميم مرفوع للعنصر
+      },
+    ],
+    status: "قيد التنفيذ",
+  });
 
   // جلب الطلبات من الـ API
   useEffect(() => {
@@ -59,7 +59,15 @@ const [newOrder, setNewOrder] = useState({
       const saved = await res.json();
       setOrders([saved, ...orders]);
       setShowForm(false);
-      setNewOrder({ customer: "", total: 0, items: 1, status: "قيد التنفيذ" });
+      setNewOrder({
+        customer: "",
+        phone: "",
+        email: "",
+        notes: "",
+        paymentMethod: "cash",
+        items: [],
+        status: "قيد التنفيذ",
+      });
     }
   };
 
@@ -122,47 +130,47 @@ const [newOrder, setNewOrder] = useState({
                 </Badge>
               </CardHeader>
               <CardContent>
-                  {Array.isArray(order.items) && order.items.length > 0 && (
-    <div className="mb-2">
-      <p className="text-sm font-semibold">الخدمات:</p>
-      <ul className="list-disc list-inside text-sm">
-        {order.items.map((item: any, i: number) => (
-          <li key={i}>
-            {item.product?.name || "خدمة بدون اسم"} × {item.quantity}
-          </li>
-        ))}
-      </ul>
-    </div>
-  )}
+                {Array.isArray(order.items) && order.items.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-sm font-semibold">الخدمات:</p>
+                    <ul className="list-disc list-inside text-sm">
+                      {order.items.map((item: any, i: number) => (
+                        <li key={i}>
+                          {item.product?.name || "خدمة بدون اسم"} × {item.quantity}
+                          {item.designFile && (
+                            <div className="mt-1">
+                              <a
+                                href={item.designFile}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-500 underline"
+                              >
+                                عرض التصميم
+                              </a>
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <p className="text-sm mb-2">العميل: {order.customer}</p>
-<p className="text-sm mb-2">
-  عدد المنتجات: {Array.isArray(order.items) ? order.items.length : order.items}
-</p>
+                <p className="text-sm mb-2">
+                  عدد المنتجات: {Array.isArray(order.items) ? order.items.length : order.items}
+                </p>
                 <p className="font-bold text-brand-yellow">
-                  {order.total.toLocaleString()} ر.س
+                  {order.total?.toLocaleString()} ر.س
                 </p>
                 <div className="flex gap-2 mt-4">
-                  <Button
-  size="sm"
-  variant="outline"
-  className="flex-1"
-  onClick={() => setSelectedOrder(order)}
->
-  <Eye className="h-4 w-4 ml-1" />
-  عرض
-</Button>
-
-              <Button
-  size="sm"
-  variant="outline"
-  className="flex-1"
-  onClick={() => setEditOrder(order)}
->
-  <Edit className="h-4 w-4 ml-1" />
-  تعديل
-</Button>
-
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setSelectedOrder(order)}>
+                    <Eye className="h-4 w-4 ml-1" />
+                    عرض
+                  </Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setEditOrder(order)}>
+                    <Edit className="h-4 w-4 ml-1" />
+                    تعديل
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -223,23 +231,34 @@ const [newOrder, setNewOrder] = useState({
               <Input
                 type="number"
                 placeholder="المجموع (ر.س)"
-                value={newOrder.total}
+                value={newOrder.total || ""}
                 onChange={(e) => setNewOrder({ ...newOrder, total: Number(e.target.value) })}
               />
               <Input
                 type="number"
                 placeholder="عدد المنتجات"
-                value={newOrder.items}
-                onChange={(e) => setNewOrder({ ...newOrder, items: Number(e.target.value) })}
+                value={newOrder.items.length}
+                onChange={(e) =>
+                  setNewOrder({
+                    ...newOrder,
+                    items: Array(Number(e.target.value)).fill({
+                      product: "",
+                      modelType: "Service",
+                      price: 0,
+                      quantity: 1,
+                      designFile: "",
+                    }),
+                  })
+                }
               />
               <select
                 className="border rounded p-2 w-full text-black"
                 value={newOrder.status}
                 onChange={(e) => setNewOrder({ ...newOrder, status: e.target.value })}
               >
-                <option value="قيد التنفيذ" className='text-black'>قيد التنفيذ</option>
-                <option value="مكتمل" className = "text-black" >مكتمل</option>
-                <option value="ملغي" className="text-black">ملغي</option>
+                <option value="قيد التنفيذ">قيد التنفيذ</option>
+                <option value="مكتمل">مكتمل</option>
+                <option value="ملغي">ملغي</option>
               </select>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setShowForm(false)}>
@@ -251,82 +270,95 @@ const [newOrder, setNewOrder] = useState({
           </Card>
         </div>
       )}
+
+      {/* Selected Order Modal */}
       {selectedOrder && (
-  <div className="fixed inset-0 flex items-center justify-center bg-black/50 text-black">
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>تفاصيل الطلب</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p><strong>العميل:</strong> {selectedOrder.customer}</p>
-        <p><strong>عدد المنتجات:</strong> {selectedOrder.items}</p>
-        <p><strong>المجموع:</strong> {selectedOrder.total} ر.س</p>
-        <p><strong>الحالة:</strong> {selectedOrder.status}</p>
-        <div className="flex justify-end mt-4">
-          <Button variant="outline" onClick={() => setSelectedOrder(null)}>إغلاق</Button>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 text-black">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>تفاصيل الطلب</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p><strong>العميل:</strong> {selectedOrder.customer}</p>
+              <p><strong>عدد المنتجات:</strong> {Array.isArray(selectedOrder.items) ? selectedOrder.items.length : selectedOrder.items}</p>
+              <p><strong>المجموع:</strong> {selectedOrder.total} ر.س</p>
+              <p><strong>الحالة:</strong> {selectedOrder.status}</p>
+              <div className="flex justify-end mt-4">
+                <Button variant="outline" onClick={() => setSelectedOrder(null)}>إغلاق</Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </CardContent>
-    </Card>
-  </div>
-)}
-{editOrder && (
-  <div className="fixed inset-0 flex items-center justify-center bg-black/50 text-black">
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>تعديل الطلب</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Input
-          placeholder="اسم العميل"
-          value={editOrder.customer}
-          onChange={(e) => setEditOrder({ ...editOrder, customer: e.target.value })}
-        />
-        <Input
-          type="number"
-          placeholder="المجموع (ر.س)"
-          value={editOrder.total}
-          onChange={(e) => setEditOrder({ ...editOrder, total: Number(e.target.value) })}
-        />
-        <Input
-          type="number"
-          placeholder="عدد المنتجات"
-          value={editOrder.items}
-          onChange={(e) => setEditOrder({ ...editOrder, items: Number(e.target.value) })}
-        />
-        <select
-          className="border rounded p-2 w-full"
-          value={editOrder.status}
-          onChange={(e) => setEditOrder({ ...editOrder, status: e.target.value })}
-        >
-          <option value="قيد التنفيذ" className='text-black'>قيد التنفيذ</option>
-          <option value="مكتمل" className='text-black'>مكتمل</option>
-          <option value="ملغي" className='text-black'>ملغي</option>
-        </select>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setEditOrder(null)}>إلغاء</Button>
-          <Button
-            onClick={async () => {
-              const res = await fetch(`/api/orders/${editOrder._id}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(editOrder),
-              });
-              if (res.ok) {
-                const updated = await res.json();
-                setOrders(orders.map((o) => (o._id === updated._id ? updated : o)));
-                setEditOrder(null);
-              }
-            }}
-          >
-            حفظ التعديلات
-          </Button>
+      )}
+
+      {/* Edit Order Modal */}
+      {editOrder && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 text-black">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>تعديل الطلب</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                placeholder="اسم العميل"
+                value={editOrder.customer}
+                onChange={(e) => setEditOrder({ ...editOrder, customer: e.target.value })}
+              />
+              <Input
+                type="number"
+                placeholder="المجموع (ر.س)"
+                value={editOrder.total || ""}
+                onChange={(e) => setEditOrder({ ...editOrder, total: Number(e.target.value) })}
+              />
+              <Input
+                type="number"
+                placeholder="عدد المنتجات"
+                value={Array.isArray(editOrder.items) ? editOrder.items.length : editOrder.items}
+                onChange={(e) =>
+                  setEditOrder({
+                    ...editOrder,
+                    items: Array(Number(e.target.value)).fill({
+                      product: "",
+                      modelType: "Service",
+                      price: 0,
+                      quantity: 1,
+                      designFile: "",
+                    }),
+                  })
+                }
+              />
+              <select
+                className="border rounded p-2 w-full"
+                value={editOrder.status}
+                onChange={(e) => setEditOrder({ ...editOrder, status: e.target.value })}
+              >
+                <option value="قيد التنفيذ">قيد التنفيذ</option>
+                <option value="مكتمل">مكتمل</option>
+                <option value="ملغي">ملغي</option>
+              </select>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditOrder(null)}>إلغاء</Button>
+                <Button
+                  onClick={async () => {
+                    const res = await fetch(`/api/orders/${editOrder._id}`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(editOrder),
+                    });
+                    if (res.ok) {
+                      const updated = await res.json();
+                      setOrders(orders.map((o) => (o._id === updated._id ? updated : o)));
+                      setEditOrder(null);
+                    }
+                  }}
+                >
+                  حفظ التعديلات
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </CardContent>
-    </Card>
-  </div>
-)}
-
-
+      )}
     </div>
   );
 }

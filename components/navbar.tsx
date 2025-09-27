@@ -8,26 +8,31 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { CartDrawer } from "@/components/cart-drawer"
-import { useCart } from "@/lib/cart-context"
+import { useCart } from "@/lib/CartProvider"
 import { useAuth } from "@/lib/auth-context"
 import { useAdminAuth } from "@/lib/admin-auth"
 import { useRouter } from "next/navigation"
 import { 
-  Search, Menu, ShoppingCart, User, LogIn, Shield, ChevronDown, LogOut, Settings 
+  Search, Menu, ShoppingCart, User, LogIn, Shield, LogOut
 } from "lucide-react"
 
-const navigationItems = [
+const publicNavigation = [
+  { name: "الرئيسية", href: "/" },
+  { name: "من نحن", href: "/about" },
+  { name: "تواصل معنا", href: "/contact" },
+]
+
+const privateNavigation = [
   { name: "الرئيسية", href: "/" },
   { name: "الخدمات", href: "/services" },
   { name: "المنتجات", href: "/products" },
-  { name: "من نحن", href: "/about" },
   { name: "الطلبات", href: "/orders" },
+  { name: "من نحن", href: "/about" },
   { name: "تواصل معنا", href: "/contact" },
 ]
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   const { items } = useCart()
@@ -38,12 +43,11 @@ export function Navbar() {
   const totalItems = items?.reduce((sum, item) => sum + item.quantity, 0) || 0
 
   useEffect(() => {
-    setMounted(true) // ✅ only animate after mount
+    setMounted(true)
   }, [])
 
   const handleLogout = () => {
     logout()
-    setIsUserMenuOpen(false)
     router.push("/")
   }
 
@@ -51,6 +55,9 @@ export function Navbar() {
     adminLogout()
     router.push("/")
   }
+
+  const isLoggedIn = adminUser || state.user
+  const navItems = isLoggedIn ? privateNavigation : publicNavigation
 
   return (
     <motion.nav
@@ -70,7 +77,7 @@ export function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8 space-x-reverse">
-            {navigationItems.map((item) => (
+            {navItems.map((item) => (
               <Link 
                 key={item.name}
                 href={item.href}
@@ -82,12 +89,14 @@ export function Navbar() {
           </div>
 
           {/* Search */}
-          <div className="hidden lg:flex items-center space-x-4 space-x-reverse">
-            <div className="relative">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input type="search" placeholder="ابحث عن الخدمات..." className="w-64 pr-10 text-right" />
+          {isLoggedIn && (
+            <div className="hidden lg:flex items-center space-x-4 space-x-reverse">
+              <div className="relative">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input type="search" placeholder="ابحث عن الخدمات..." className="w-64 pr-10 text-right" />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* User Actions */}
           <div className="flex items-center space-x-4 space-x-reverse">
@@ -100,21 +109,22 @@ export function Navbar() {
             )}
 
             {/* Cart */}
-            <CartDrawer>
-              <Button variant="ghost" size="icon" className="relative">
-                <ShoppingCart className="h-5 w-5" />
-                {totalItems > 0 && (
-                  <Badge className="absolute -top-2 -right-2 bg-brand-yellow text-black text-xs h-5 w-5 flex items-center justify-center">
-                    {totalItems}
-                  </Badge>
-                )}
-              </Button>
-            </CartDrawer>
+            {isLoggedIn && (
+              <CartDrawer>
+                <Button variant="ghost" size="icon" className="relative">
+                  <ShoppingCart className="h-5 w-5" />
+                  {totalItems > 0 && (
+                    <Badge className="absolute -top-2 -right-2 bg-brand-yellow text-black text-xs h-5 w-5 flex items-center justify-center">
+                      {totalItems}
+                    </Badge>
+                  )}
+                </Button>
+              </CartDrawer>
+            )}
 
-            {/* ✅ New login/logout/profile logic */}
-            {(adminUser || state.user) ? (
+            {/* ✅ Login / Profile / Logout */}
+            {isLoggedIn ? (
               <>
-                {/* Profile */}
                 <Button 
                   variant="ghost" 
                   size="icon" 
@@ -123,8 +133,6 @@ export function Navbar() {
                 >
                   <User className="h-5 w-5" />
                 </Button>
-
-                {/* Logout */}
                 <Button 
                   variant="ghost" 
                   size="icon" 
@@ -145,7 +153,7 @@ export function Navbar() {
               </Button>
             )}
 
-            {/* Mobile menu toggle */}
+            {/* Mobile menu */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild className="md:hidden">
                 <Button variant="ghost" size="icon">
@@ -153,7 +161,17 @@ export function Navbar() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-80">
-                {/* mobile nav content... */}
+                <div className="flex flex-col space-y-4 mt-8">
+                  {navItems.map((item) => (
+                    <Link 
+                      key={item.name} 
+                      href={item.href} 
+                      className="text-lg font-medium text-foreground hover:text-primary transition-colors"
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
               </SheetContent>
             </Sheet>
           </div>

@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCart } from "@/lib/cart-context";
+import { useCart } from "@/lib/CartProvider";
 import { useRouter } from "next/navigation";
 
 interface ProductDetailPageProps {
@@ -75,20 +75,32 @@ const [selectedMaterial, setSelectedMaterial] = useState<{name: string, priceAdd
     fetchProduct();
   }, [id]);
 
+
+const [designFile, setDesignFile] = useState<File | null>(null);
+
+const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files && e.target.files[0]) {
+    setDesignFile(e.target.files[0]);
+  }
+};
 const handleAddToCart = () => {
   if (!product) return;
-  
+
   const productWithOptions = {
     ...product,
     price: currentPrice.total,
     selectedSize,
     selectedSide,
     selectedMaterial,
-    selectedQuantity: selectedQuantityOption ? selectedQuantityOption.quantity : 1,
+    selectedQuantity: selectedQuantityOption
+      ? selectedQuantityOption.quantity
+      : 1,
+    designFile, // ✅ التصميم المرفوع يروح مع الطلب
   };
-  
+
   addItem(productWithOptions);
 };
+
 
   const goBack = () => {
     router.back();
@@ -394,7 +406,23 @@ const currentPrice = calculateTotalPrice();
 </Select>
 
 </div>
-            
+            {product.category === "طباعة رقمية" && (
+  <div>
+    <h3 className="font-semibold text-white mb-2">ارفع التصميم:</h3>
+    <input
+      type="file"
+      accept="image/*,.pdf"
+      onChange={handleFileChange}
+      className="text-white"
+    />
+    {designFile && (
+      <p className="text-sm text-green-400 mt-2">
+        تم اختيار: {designFile.name}
+      </p>
+    )}
+  </div>
+)}
+
 
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-4">

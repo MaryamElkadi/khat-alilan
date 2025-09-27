@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useCart } from "@/lib/cart-context"
+import { useCart } from "@/lib/CartProvider"
 import Link from "next/link"
 import { useState } from "react"
 

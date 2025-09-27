@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
+import { toast } from "react-toastify"
 
 const categories = [
   { id: "graphic", name: "تصميم جرافيك" },
@@ -47,16 +48,20 @@ export default function NewWork() {
     }
 
     try {
-      const res = await fetch("/api/works", {
+      const res = await fetch("/api/portfolio", {
         method: "POST",
         body: formData,
       })
 
       if (res.ok) {
-        router.push("/admin/works")
+        toast.success("تم الحفظ بنجاح ✅")
+        router.push("/admin/portfolio")
+      } else {
+        toast.error("حدث خطأ أثناء الحفظ ❌")
       }
     } catch (err) {
       console.error("Error uploading work:", err)
+      toast.error("فشل الاتصال بالسيرفر ⚠️")
     }
   }
 
