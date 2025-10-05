@@ -11,18 +11,19 @@ import { Separator } from "@/components/ui/separator"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useCart } from "@/lib/CartProvider"
-import { useAdminAuth } from "@/lib/admin-auth" // Fixed import
+import { useAdminAuth } from "@/lib/admin-auth"
 import { useRouter } from "next/navigation"
 import { toast } from "react-toastify"
 
 export default function CheckoutPage() {
   const { items, total, clearCart } = useCart()
-  const { user } = useAdminAuth() // Use the correct auth hook
+  const { user } = useAdminAuth()
   const router = useRouter()
   const [step, setStep] = useState(1)
-  const [paymentMethod, setPaymentMethod] = useState("card")
+  const [paymentMethod, setPaymentMethod] = useState("cash") // Default to cash
   const [isProcessing, setIsProcessing] = useState(false)
   const [orderComplete, setOrderComplete] = useState(false)
+  const [agreeToTerms, setAgreeToTerms] = useState(false)
 
   const [shippingInfo, setShippingInfo] = useState({
     firstName: "",
@@ -56,6 +57,19 @@ export default function CheckoutPage() {
   }
 
   const handlePlaceOrder = async () => {
+    // Validate terms agreement
+    if (!agreeToTerms) {
+      toast.error("يجب الموافقة على الشروط والأحكام أولاً")
+      return
+    }
+
+    // Validate shipping info
+    if (!shippingInfo.firstName || !shippingInfo.lastName || !shippingInfo.email || 
+        !shippingInfo.phone || !shippingInfo.address || !shippingInfo.city) {
+      toast.error("يرجى ملء جميع معلومات الشحن المطلوبة")
+      return
+    }
+
     setIsProcessing(true)
 
     try {
@@ -66,33 +80,38 @@ export default function CheckoutPage() {
         return
       }
 
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user: user.id, // ✅ User ID from auth
-          items: items.map((item) => ({
-            product: item._id,
-            modelType: "Product", // ✅ Specify model type
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-          })),
-          shippingInfo: shippingInfo,
-          paymentMethod: paymentMethod,
-          totalAmount: finalTotal, // ✅ Use totalAmount instead of total
-        }),
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.error || "Failed to place order")
+      const orderData = {
+        user: user.id,
+        items: items.map((item) => ({
+          product: item._id,
+          modelType: "Product",
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        shippingInfo: shippingInfo,
+        paymentMethod: paymentMethod,
+        totalAmount: finalTotal,
       }
 
-      const data = await res.json()
-      console.log("Order saved:", data)
+      console.log("Sending order data:", orderData)
 
-      // Show success message
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify(orderData),
+      })
+
+      const responseData = await res.json()
+
+      if (!res.ok) {
+        throw new Error(responseData.error || "فشل في إنشاء الطلب")
+      }
+
+      console.log("Order saved successfully:", responseData)
+
       toast.success("🎉 تم تأكيد طلبك بنجاح! سيتم التواصل معك قريباً")
 
       setOrderComplete(true)
@@ -111,11 +130,16 @@ export default function CheckoutPage() {
     }
   }
 
+  // Show empty cart message
   if (items.length === 0 && !orderComplete) {
     return (
       <div className="min-h-screen bg-background pt-20">
         <div className="container mx-auto px-4 py-16 text-center">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md mx-auto">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            className="max-w-md mx-auto"
+          >
             <h1 className="text-2xl font-bold mb-4">السلة فارغة</h1>
             <p className="text-muted-foreground mb-6">لا توجد منتجات في سلة التسوق</p>
             <Button
@@ -130,6 +154,7 @@ export default function CheckoutPage() {
     )
   }
 
+  // Show order complete message
   if (orderComplete) {
     return (
       <div className="min-h-screen bg-background pt-20">
@@ -164,7 +189,11 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-background pt-20">
       <div className="container mx-auto px-4 py-8">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-6xl mx-auto">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }} 
+          animate={{ opacity: 1, y: 0 }} 
+          className="max-w-6xl mx-auto"
+        >
           {/* Progress Steps */}
           <div className="mb-8">
             <div className="flex items-center justify-center space-x-4 space-x-reverse">
@@ -206,7 +235,7 @@ export default function CheckoutPage() {
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="firstName">الاسم الأول</Label>
+                        <Label htmlFor="firstName">الاسم الأول *</Label>
                         <Input
                           id="firstName"
                           value={shippingInfo.firstName}
@@ -216,7 +245,7 @@ export default function CheckoutPage() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="lastName">اسم العائلة</Label>
+                        <Label htmlFor="lastName">اسم العائلة *</Label>
                         <Input
                           id="lastName"
                           value={shippingInfo.lastName}
@@ -227,7 +256,7 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                     <div>
-                      <Label htmlFor="email">البريد الإلكتروني</Label>
+                      <Label htmlFor="email">البريد الإلكتروني *</Label>
                       <Input
                         id="email"
                         type="email"
@@ -238,7 +267,7 @@ export default function CheckoutPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="phone">رقم الهاتف</Label>
+                      <Label htmlFor="phone">رقم الهاتف *</Label>
                       <Input
                         id="phone"
                         value={shippingInfo.phone}
@@ -248,7 +277,7 @@ export default function CheckoutPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="address">العنوان</Label>
+                      <Label htmlFor="address">العنوان *</Label>
                       <Input
                         id="address"
                         value={shippingInfo.address}
@@ -259,7 +288,7 @@ export default function CheckoutPage() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <Label htmlFor="city">المدينة</Label>
+                        <Label htmlFor="city">المدينة *</Label>
                         <Input
                           id="city"
                           value={shippingInfo.city}
@@ -278,7 +307,7 @@ export default function CheckoutPage() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="country">البلد</Label>
+                        <Label htmlFor="country">البلد *</Label>
                         <Input
                           id="country"
                           value={shippingInfo.country}
@@ -321,7 +350,7 @@ export default function CheckoutPage() {
                     {paymentMethod === "card" && (
                       <div className="space-y-4">
                         <div>
-                          <Label htmlFor="cardName">اسم حامل البطاقة</Label>
+                          <Label htmlFor="cardName">اسم حامل البطاقة *</Label>
                           <Input
                             id="cardName"
                             value={paymentInfo.cardName}
@@ -331,7 +360,7 @@ export default function CheckoutPage() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="cardNumber">رقم البطاقة</Label>
+                          <Label htmlFor="cardNumber">رقم البطاقة *</Label>
                           <Input
                             id="cardNumber"
                             placeholder="1234 5678 9012 3456"
@@ -343,7 +372,7 @@ export default function CheckoutPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label htmlFor="expiryDate">تاريخ الانتهاء</Label>
+                            <Label htmlFor="expiryDate">تاريخ الانتهاء *</Label>
                             <Input
                               id="expiryDate"
                               placeholder="MM/YY"
@@ -354,7 +383,7 @@ export default function CheckoutPage() {
                             />
                           </div>
                           <div>
-                            <Label htmlFor="cvv">CVV</Label>
+                            <Label htmlFor="cvv">CVV *</Label>
                             <Input
                               id="cvv"
                               placeholder="123"
@@ -431,7 +460,11 @@ export default function CheckoutPage() {
                     </div>
 
                     <div className="flex items-center space-x-2 space-x-reverse">
-                      <Checkbox id="terms" />
+                      <Checkbox 
+                        id="terms" 
+                        checked={agreeToTerms}
+                        onCheckedChange={(checked) => setAgreeToTerms(checked as boolean)}
+                      />
                       <Label htmlFor="terms" className="text-sm">
                         أوافق على الشروط والأحكام وسياسة الخصوصية
                       </Label>
@@ -443,7 +476,7 @@ export default function CheckoutPage() {
                       </Button>
                       <Button
                         onClick={handlePlaceOrder}
-                        disabled={isProcessing}
+                        disabled={isProcessing || !agreeToTerms}
                         className="flex-1 bg-brand-yellow text-black hover:bg-brand-yellow/90"
                       >
                         {isProcessing ? "جاري المعالجة..." : "تأكيد الطلب"}
