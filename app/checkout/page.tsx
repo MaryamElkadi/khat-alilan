@@ -11,12 +11,13 @@ import { Separator } from "@/components/ui/separator"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useCart } from "@/lib/CartProvider"
-import { useAuth } from "@/lib/auth-context"
+import { useAdminAuth } from "@/lib/admin-auth" // Fixed import
 import { useRouter } from "next/navigation"
+import { toast } from "react-toastify"
 
 export default function CheckoutPage() {
   const { items, total, clearCart } = useCart()
-  const { user } = useAuth()
+  const { user } = useAdminAuth() // Use the correct auth hook
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [paymentMethod, setPaymentMethod] = useState("card")
@@ -53,51 +54,62 @@ export default function CheckoutPage() {
       setPaymentInfo((prev) => ({ ...prev, [field]: value }))
     }
   }
-const { user } = useAdminAuth(); // Your auth hook
 
-const handlePlaceOrder = async () => {
-  setIsProcessing(true)
-const requestData = {
-    user: user?.id, // Send user ID
-    items: items.map((item) => ({
-      product: item._id,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-    })),
-   try {
-    const res = await fetch("/api/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user: user?.id, // ✅ User ID from auth
-        items: items.map((item) => ({
-          product: item._id,
-          modelType: "Product", // ✅ Specify model type
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-        shippingInfo: shippingInfo,
-        paymentMethod: paymentMethod,
-        total: finalTotal,
-      }),
-    })
+  const handlePlaceOrder = async () => {
+    setIsProcessing(true)
 
-    if (!res.ok) throw new Error("Failed to place order")
+    try {
+      // Check if user is logged in
+      if (!user?.id) {
+        toast.error("يجب تسجيل الدخول أولاً")
+        router.push("/login")
+        return
+      }
 
-    const data = await res.json()
-    console.log("Order saved:", data)
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user: user.id, // ✅ User ID from auth
+          items: items.map((item) => ({
+            product: item._id,
+            modelType: "Product", // ✅ Specify model type
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          })),
+          shippingInfo: shippingInfo,
+          paymentMethod: paymentMethod,
+          totalAmount: finalTotal, // ✅ Use totalAmount instead of total
+        }),
+      })
 
-    setOrderComplete(true)
-    clearCart()
-  } catch (error) {
-    console.error("Checkout error:", error)
-    alert("حدث خطأ أثناء إتمام الطلب")
-  } finally {
-    setIsProcessing(false)
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || "Failed to place order")
+      }
+
+      const data = await res.json()
+      console.log("Order saved:", data)
+
+      // Show success message
+      toast.success("🎉 تم تأكيد طلبك بنجاح! سيتم التواصل معك قريباً")
+
+      setOrderComplete(true)
+      clearCart()
+
+      // Redirect to home after 2 seconds
+      setTimeout(() => {
+        router.push("/")
+      }, 2000)
+
+    } catch (error: any) {
+      console.error("Checkout error:", error)
+      toast.error(error.message || "حدث خطأ أثناء إتمام الطلب")
+    } finally {
+      setIsProcessing(false)
+    }
   }
-}
 
   if (items.length === 0 && !orderComplete) {
     return (
@@ -200,6 +212,7 @@ const requestData = {
                           value={shippingInfo.firstName}
                           onChange={(e) => handleInputChange("shipping", "firstName", e.target.value)}
                           className="text-right"
+                          required
                         />
                       </div>
                       <div>
@@ -209,6 +222,7 @@ const requestData = {
                           value={shippingInfo.lastName}
                           onChange={(e) => handleInputChange("shipping", "lastName", e.target.value)}
                           className="text-right"
+                          required
                         />
                       </div>
                     </div>
@@ -220,6 +234,7 @@ const requestData = {
                         value={shippingInfo.email}
                         onChange={(e) => handleInputChange("shipping", "email", e.target.value)}
                         className="text-right"
+                        required
                       />
                     </div>
                     <div>
@@ -229,6 +244,7 @@ const requestData = {
                         value={shippingInfo.phone}
                         onChange={(e) => handleInputChange("shipping", "phone", e.target.value)}
                         className="text-right"
+                        required
                       />
                     </div>
                     <div>
@@ -238,6 +254,7 @@ const requestData = {
                         value={shippingInfo.address}
                         onChange={(e) => handleInputChange("shipping", "address", e.target.value)}
                         className="text-right"
+                        required
                       />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -248,6 +265,7 @@ const requestData = {
                           value={shippingInfo.city}
                           onChange={(e) => handleInputChange("shipping", "city", e.target.value)}
                           className="text-right"
+                          required
                         />
                       </div>
                       <div>
@@ -266,6 +284,7 @@ const requestData = {
                           value={shippingInfo.country}
                           onChange={(e) => handleInputChange("shipping", "country", e.target.value)}
                           className="text-right"
+                          required
                         />
                       </div>
                     </div>
@@ -308,6 +327,7 @@ const requestData = {
                             value={paymentInfo.cardName}
                             onChange={(e) => handleInputChange("payment", "cardName", e.target.value)}
                             className="text-right"
+                            required
                           />
                         </div>
                         <div>
@@ -318,6 +338,7 @@ const requestData = {
                             value={paymentInfo.cardNumber}
                             onChange={(e) => handleInputChange("payment", "cardNumber", e.target.value)}
                             className="text-right"
+                            required
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -329,6 +350,7 @@ const requestData = {
                               value={paymentInfo.expiryDate}
                               onChange={(e) => handleInputChange("payment", "expiryDate", e.target.value)}
                               className="text-right"
+                              required
                             />
                           </div>
                           <div>
@@ -339,6 +361,7 @@ const requestData = {
                               value={paymentInfo.cvv}
                               onChange={(e) => handleInputChange("payment", "cvv", e.target.value)}
                               className="text-right"
+                              required
                             />
                           </div>
                         </div>
