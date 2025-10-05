@@ -6,6 +6,7 @@ interface User {
   id: string
   email: string
   name: string
+  phone?: string
   role: "admin" | "user"
 }
 
@@ -13,23 +14,12 @@ interface AdminAuthContextType {
   user: User | null
   isLoading: boolean
   login: (email: string, password: string) => Promise<boolean>
+  register: (userData: { name: string; email: string; password: string; phone?: string }) => Promise<boolean>
   logout: () => void
   isAdmin: boolean
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType | null>(null)
-
-// Mock admin credentials - in real app, this would be handled by a backend
-const ADMIN_CREDENTIALS = {
-  email: "admin@khat-al-ilan.com",
-  password: "admin123",
-  user: {
-    id: "admin-1",
-    email: "admin@khat-al-ilan.com",
-    name: "مدير الموقع",
-    role: "admin" as const,
-  },
-}
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -51,33 +41,63 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true)
 
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-    // Check admin credentials
-    if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
-      setUser(ADMIN_CREDENTIALS.user)
-      localStorage.setItem("khat-al-ilan-user", JSON.stringify(ADMIN_CREDENTIALS.user))
-      setIsLoading(false)
-      return true
-    }
+      const data = await response.json()
 
-    // For demo purposes, any other email/password creates a regular user
-    if (email && password) {
-      const regularUser: User = {
-        id: `user-${Date.now()}`,
-        email,
-        name: email.split("@")[0],
-        role: "user",
+      if (response.ok && data.success) {
+        setUser(data.user)
+        localStorage.setItem("khat-al-ilan-user", JSON.stringify(data.user))
+        setIsLoading(false)
+        return true
+      } else {
+        console.error('Login failed:', data.error)
+        setIsLoading(false)
+        return false
       }
-      setUser(regularUser)
-      localStorage.setItem("khat-al-ilan-user", JSON.stringify(regularUser))
+    } catch (error) {
+      console.error('Login error:', error)
       setIsLoading(false)
-      return true
+      return false
     }
+  }
 
-    setIsLoading(false)
-    return false
+  const register = async (userData: { name: string; email: string; password: string; phone?: string }): Promise<boolean> => {
+    setIsLoading(true)
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setUser(data.user)
+        localStorage.setItem("khat-al-ilan-user", JSON.stringify(data.user))
+        setIsLoading(false)
+        return true
+      } else {
+        console.error('Registration failed:', data.error)
+        setIsLoading(false)
+        return false
+      }
+    } catch (error) {
+      console.error('Registration error:', error)
+      setIsLoading(false)
+      return false
+    }
   }
 
   const logout = () => {
@@ -88,7 +108,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const isAdmin = user?.role === "admin"
 
   return (
-    <AdminAuthContext.Provider value={{ user, isLoading, login, logout, isAdmin }}>
+    <AdminAuthContext.Provider value={{ user, isLoading, login, register, logout, isAdmin }}>
       {children}
     </AdminAuthContext.Provider>
   )

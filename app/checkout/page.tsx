@@ -53,24 +53,33 @@ export default function CheckoutPage() {
       setPaymentInfo((prev) => ({ ...prev, [field]: value }))
     }
   }
+const { user } = useAdminAuth(); // Your auth hook
 
 const handlePlaceOrder = async () => {
   setIsProcessing(true)
-
-  try {
+const requestData = {
+    user: user?.id, // Send user ID
+    items: items.map((item) => ({
+      product: item._id,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+    })),
+   try {
     const res = await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        user: user?._id, // from auth context
+        user: user?.id, // ✅ User ID from auth
         items: items.map((item) => ({
-          product: item._id, // ✅ real MongoDB _id
+          product: item._id,
+          modelType: "Product", // ✅ Specify model type
           name: item.name,
           price: item.price,
           quantity: item.quantity,
         })),
-        shippingInfo,
-        paymentMethod,
+        shippingInfo: shippingInfo,
+        paymentMethod: paymentMethod,
         total: finalTotal,
       }),
     })

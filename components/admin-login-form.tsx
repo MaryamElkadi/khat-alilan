@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Eye, EyeOff, Lock, Mail, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,27 +10,72 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAdminAuth } from "@/lib/admin-auth"
 import { useRouter } from "next/navigation"
-import { signIn } from "next-auth/react"
-import { FcGoogle } from "react-icons/fc"
-import { FaFacebook } from "react-icons/fa"
+import { toast } from "react-toastify"
+
 export function AdminLoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
-  const { login, isLoading } = useAdminAuth()
+  const { login, isLoading, user } = useAdminAuth()
   const router = useRouter()
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'admin') {
+        router.push("/admin")
+      } else {
+        router.push("/")
+      }
+    }
+  }, [user, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
+    // Basic validation
+    if (!email || !password) {
+      setError("يرجى ملء جميع الحقول")
+      return
+    }
+
     const success = await login(email, password)
     if (success) {
-      router.push("/")
+      // Show success toast
+      toast.success(`🎉 مرحباً بعودتك! يتم توجيهك الآن...`, {
+        position: "top-center",
+        autoClose: 2000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+
+      // Wait a bit for the toast to show, then redirect based on user role
+      setTimeout(() => {
+        if (user?.role === 'admin') {
+          router.push("/admin");
+        } else {
+          router.push("/");
+        }
+      }, 2000);
+
     } else {
       setError("بيانات الدخول غير صحيحة")
     }
+  }
+
+  // Auto-fill credentials for testing
+  const fillAdminCredentials = () => {
+    setEmail('admin@khat-al-ilan.com')
+    setPassword('admin123')
+  }
+
+  const fillUserCredentials = () => {
+    setEmail('user@example.com')
+    setPassword('user123')
   }
 
   return (
@@ -52,7 +96,7 @@ export function AdminLoginForm() {
               <Shield className="h-8 w-8 text-white" />
             </motion.div>
             <CardTitle className="text-2xl font-bold text-brand-blue">تسجيل الدخول</CardTitle>
-            <CardDescription className="text-muted-foreground">ادخل بياناتك للوصول إلى لوحة التحكم</CardDescription>
+            <CardDescription className="text-muted-foreground">ادخل بياناتك للوصول إلى حسابك</CardDescription>
           </CardHeader>
 
           <CardContent>
@@ -121,51 +165,51 @@ export function AdminLoginForm() {
               >
                 {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
               </Button>
-              <div className="mt-6 text-center">
-  <p className="text-sm text-muted-foreground">
-    ليس لديك حساب؟{" "}
-    <button
-      onClick={() => router.push("/register")}
-      className="text-brand-blue font-semibold hover:underline"
-    >
-      سجل الآن
-    </button>
-  </p>
-</div>
-
-<div className="mt-6 space-y-3">
-  <Button
-    type="button"
-    variant="outline"
-    className="w-full flex items-center justify-center gap-2"
-    onClick={() => signIn("google", { callbackUrl: "/" })}
-  >
-    <FcGoogle className="h-5 w-5" />
-    متابعة باستخدام Google
-  </Button>
-
-  <Button
-    type="button"
-    variant="outline"
-    className="w-full flex items-center justify-center gap-2"
-    onClick={() => signIn("facebook", { callbackUrl: "/" })}
-  >
-    <FaFacebook className="h-5 w-5 text-blue-600" />
-    متابعة باستخدام Facebook
-  </Button>
-</div>
             </form>
 
+            {/* Demo credentials section */}
             <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-              <p className="text-sm text-muted-foreground text-center mb-2">بيانات تجريبية:</p>
-              <div className="text-xs space-y-1 text-center">
-                <p>
+              <p className="text-sm text-muted-foreground text-center mb-3">بيانات تجريبية:</p>
+              <div className="space-y-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={fillAdminCredentials}
+                >
+                  تعبئة بيانات المدير
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={fillUserCredentials}
+                >
+                  تعبئة بيانات مستخدم عادي
+                </Button>
+              </div>
+              <div className="text-xs space-y-1 text-center mt-3">
+                <p className="text-green-600">
                   <strong>المدير:</strong> admin@khat-al-ilan.com / admin123
                 </p>
-                <p>
-                  <strong>مستخدم عادي:</strong> أي بريد إلكتروني وكلمة مرور
+                <p className="text-blue-600">
+                  <strong>مستخدم عادي:</strong> user@example.com / user123
                 </p>
               </div>
+            </div>
+
+            <div className="mt-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                ليس لديك حساب؟{" "}
+                <button
+                  onClick={() => router.push("/register")}
+                  className="text-brand-blue font-semibold hover:underline"
+                >
+                  سجل الآن
+                </button>
+              </p>
             </div>
           </CardContent>
         </Card>

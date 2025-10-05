@@ -23,6 +23,7 @@ export default function RequestServicePage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const serviceId = searchParams.get("id")
+const { user } = useAdminAuth(); // Your auth hook
 
   const [service, setService] = useState<Service | null>(null)
   const [formData, setFormData] = useState({
@@ -63,53 +64,56 @@ export default function RequestServicePage() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  // Handle submit
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setIsLoading(true)
 
-    if (!service) {
-      toast.error("الخدمة غير متوفرة.")
-      setIsLoading(false)
-      return
-    }
-
-    const requestData = {
-      customer: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      notes: formData.notes,
-      paymentMethod: "cash",
-      items: [
-        {
-          product: service._id,
-          name: service.title,
-          price: Number(service.price),
-          quantity: 1,
-          modelType: "Service",
-        },
-      ],
-    }
-
-    try {
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestData),
-      })
-
-      if (!res.ok) throw new Error("فشل إرسال الطلب. حاول مجدداً.")
-
-      toast.success("تم استلام طلبك بنجاح! 🎉 سنتواصل معك قريباً")
-      router.push("/")
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err.message || "فشل إرسال الطلب. حاول مجدداً.")
-    } finally {
-      setIsLoading(false)
-    }
+  if (!service) {
+    toast.error("الخدمة غير متوفرة.")
+    setIsLoading(false)
+    return
   }
 
+  const requestData = {
+    user: user?.id, // ✅ User ID from auth
+    items: [
+      {
+        product: service._id,
+        modelType: "Service", // ✅ Specify model type
+        name: service.title,
+        price: Number(service.price),
+        quantity: 1,
+      },
+    ],
+    shippingInfo: {
+      firstName: formData.name.split(' ')[0] || '',
+      lastName: formData.name.split(' ').slice(1).join(' ') || '',
+      email: formData.email,
+      phone: formData.phone,
+    },
+    paymentMethod: "cash",
+    notes: formData.notes,
+  }
+
+  try {
+    const res = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestData),
+    })
+
+    if (!res.ok) throw new Error("فشل إرسال الطلب. حاول مجدداً.")
+
+    const data = await res.json()
+    toast.success("تم استلام طلبك بنجاح! 🎉 سنتواصل معك قريباً")
+    router.push("/profile") // Redirect to profile to see the order
+  } catch (err: any) {
+    console.error(err)
+    toast.error(err.message || "فشل إرسال الطلب. حاول مجدداً.")
+  } finally {
+    setIsLoading(false)
+  }
+}
   // Loading state
   if (isServiceLoading) {
     return (

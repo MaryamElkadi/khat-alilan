@@ -2,9 +2,7 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { Eye, EyeOff, Lock, Mail, Shield, User } from "lucide-react"
-import { FcGoogle } from "react-icons/fc"
-import { FaFacebook } from "react-icons/fa"
+import { Eye, EyeOff, Lock, Mail, Shield, User, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,35 +14,111 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
-import { signIn } from "next-auth/react"
+import { useAdminAuth } from "@/lib/admin-auth"
+import { toast } from "react-toastify"
 
 export default function RegisterForm() {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: ""
+  })
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const { register, user } = useAdminAuth()
+
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setIsLoading(true)
+
+    // Validation
+    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+      setError("يرجى ملء جميع الحقول المطلوبة")
+      setIsLoading(false)
+      return
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("كلمات المرور غير متطابقة")
+      setIsLoading(false)
+      return
+    }
+
+    if (formData.password.length < 6) {
+      setError("كلمة المرور يجب أن تكون 6 أحرف على الأقل")
+      setIsLoading(false)
+      return
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      setError("البريد الإلكتروني غير صالح")
+      setIsLoading(false)
+      return
+    }
 
     try {
-      const res = await fetch("/api/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+      const success = await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        phone: formData.phone || undefined
       })
 
-      if (res.ok) {
-        router.push("/login")
+      if (success) {
+        // Show success toast
+        toast.success('🎉 تم إنشاء الحساب بنجاح! يتم توجيهك الآن...', {
+          position: "top-center",
+          autoClose: 2000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+
+        // Wait a bit for the toast to show, then redirect based on user role
+        setTimeout(() => {
+          if (user?.role === 'admin') {
+            router.push("/admin");
+          } else {
+            router.push("/");
+          }
+        }, 2000);
+
       } else {
-        setError("فشل التسجيل. حاول مرة تانية")
+        setError("فشل في إنشاء الحساب. قد يكون البريد الإلكتروني مسجل مسبقاً")
       }
     } catch (err) {
-      setError("حصل خطأ. حاول لاحقاً")
+      console.error('Registration error:', err)
+      setError("حدث خطأ أثناء إنشاء الحساب. يرجى المحاولة مرة أخرى")
+    } finally {
+      setIsLoading(false)
     }
+  }
+
+  // Auto-fill for testing
+  const fillUserForm = () => {
+    setFormData({
+      name: "مستخدم تجريبي",
+      email: "user@example.com",
+      phone: "0512345678",
+      password: "user123",
+      confirmPassword: "user123"
+    })
   }
 
   return (
@@ -72,42 +146,44 @@ export default function RegisterForm() {
               تسجيل حساب جديد
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              ادخل بياناتك لإنشاء حساب
+              ادخل بياناتك لإنشاء حساب جديد
             </CardDescription>
           </CardHeader>
 
           <CardContent>
             {/* Register form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Name Field */}
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-right block">
-                  الاسم
+                  الاسم الكامل *
                 </Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="name"
                     type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    value={formData.name}
+                    onChange={(e) => handleChange("name", e.target.value)}
                     className="pl-10 text-right"
-                    placeholder="الاسم الكامل"
+                    placeholder="أدخل اسمك الكامل"
                     required
                   />
                 </div>
               </div>
 
+              {/* Email Field */}
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-right block">
-                  البريد الإلكتروني
+                  البريد الإلكتروني *
                 </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={formData.email}
+                    onChange={(e) => handleChange("email", e.target.value)}
                     className="pl-10 text-right"
                     placeholder="you@example.com"
                     required
@@ -115,20 +191,40 @@ export default function RegisterForm() {
                 </div>
               </div>
 
+              {/* Phone Field (Optional) */}
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-right block">
+                  رقم الهاتف
+                </Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => handleChange("phone", e.target.value)}
+                    className="pl-10 text-right"
+                    placeholder="05XXXXXXXX"
+                  />
+                </div>
+              </div>
+
+              {/* Password Field */}
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-right block">
-                  كلمة المرور
+                  كلمة المرور *
                 </Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={formData.password}
+                    onChange={(e) => handleChange("password", e.target.value)}
                     className="pl-10 pr-10 text-right"
-                    placeholder="••••••••"
+                    placeholder="6 أحرف على الأقل"
                     required
+                    minLength={6}
                   />
                   <button
                     type="button"
@@ -144,61 +240,97 @@ export default function RegisterForm() {
                 </div>
               </div>
 
+              {/* Confirm Password Field */}
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-right block">
+                  تأكيد كلمة المرور *
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={formData.confirmPassword}
+                    onChange={(e) => handleChange("confirmPassword", e.target.value)}
+                    className="pl-10 pr-10 text-right"
+                    placeholder="أعد إدخال كلمة المرور"
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Error Message */}
               {error && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-red-500 text-sm text-center bg-red-50 p-2 rounded"
+                  className="text-red-500 text-sm text-center bg-red-50 p-2 rounded border border-red-200"
                 >
                   {error}
                 </motion.div>
               )}
 
+              {/* Submit Button */}
               <Button
                 type="submit"
                 className="w-full bg-brand-blue hover:bg-brand-blue/90 text-white"
+                disabled={isLoading}
               >
-                تسجيل
+                {isLoading ? "جاري إنشاء الحساب..." : "تسجيل حساب جديد"}
               </Button>
             </form>
 
-            {/* OR divider */}
-            <div className="flex items-center my-6">
-              <div className="flex-grow h-px bg-gray-300" />
-              <span className="px-2 text-sm text-gray-500">أو</span>
-              <div className="flex-grow h-px bg-gray-300" />
+            {/* Demo Button */}
+            <div className="mt-4 p-3 bg-muted/30 rounded-lg">
+              <p className="text-sm text-muted-foreground text-center mb-2">
+                للتجربة السريعة:
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full text-xs"
+                onClick={fillUserForm}
+              >
+                تعبئة نموذج تجريبي
+              </Button>
             </div>
 
-            {/* Continue with Google */}
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full flex items-center justify-center gap-2 mb-3"
-              onClick={() => signIn("google")}
-            >
-              <FcGoogle className="h-5 w-5" />
-              <span>تابع باستخدام Google</span>
-            </Button>
-
-            {/* Continue with Facebook */}
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full flex items-center justify-center gap-2"
-              onClick={() => signIn("facebook")}
-            >
-              <FaFacebook className="h-5 w-5 text-blue-600" />
-              <span>تابع باستخدام Facebook</span>
-            </Button>
-
+            {/* Login Link */}
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
-                عندك حساب بالفعل؟{" "}
+                لديك حساب بالفعل؟{" "}
                 <button
                   onClick={() => router.push("/login")}
                   className="text-brand-blue font-semibold hover:underline"
                 >
                   تسجيل الدخول
+                </button>
+              </p>
+            </div>
+
+            {/* Terms Notice */}
+            <div className="mt-4 text-center">
+              <p className="text-xs text-muted-foreground">
+                بمجرد التسجيل، فإنك توافق على{" "}
+                <button className="text-brand-blue hover:underline">
+                  الشروط والأحكام
+                </button>{" "}
+                و{" "}
+                <button className="text-brand-blue hover:underline">
+                  سياسة الخصوصية
                 </button>
               </p>
             </div>
