@@ -1,4 +1,3 @@
-// app/api/products/route.ts
 import { NextResponse } from "next/server"
 import { connectDB } from "@/lib/db"
 import Product from "@/models/Product"
@@ -10,11 +9,11 @@ import { mkdir } from "fs/promises"
 export async function GET() {
   try {
     await connectDB()
-    const products = await Product.find({})
+    const products = await Product.find({}).sort({ createdAt: -1 })
     return NextResponse.json(products, { status: 200 })
   } catch (error: any) {
-    console.error("❌ GET /api/products error:", error.message, error.stack)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error("❌ GET /api/products error:", error.message)
+    return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 })
   }
 }
 
@@ -22,39 +21,52 @@ export async function POST(req: Request) {
   try {
     await connectDB();
 
-    // Debug: Check if Product model has the correct schema
-    console.log("Product schema paths:", Product.schema.paths);
-
     const formData = await req.formData();
 
+    // Extract all form data
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
-    const price = parseFloat(formData.get("price") as string);
+    const price = formData.get("price") as string;
     const category = formData.get("category") as string;
-    const featured = formData.get("featured") === "true";
+    const featured = formData.get("featured") as string;
+    const status = formData.get("status") as string || "مسودة";
+
+    // Validate required fields
+    if (!title?.trim() || !description?.trim() || !price || !category?.trim()) {
+      return NextResponse.json(
+        { success: false, error: "جميع الحقول المطلوبة يجب ملؤها" }, 
+        { status: 400 }
+      );
+    }
+
+    // Parse numeric fields
+    const priceValue = parseFloat(price);
+    if (isNaN(priceValue) || priceValue < 0) {
+      return NextResponse.json(
+        { success: false, error: "السعر يجب أن يكون رقم صحيح" }, 
+        { status: 400 }
+      );
+    }
 
     // Parse options with better error handling
     const parseOptions = (optionsString: string | null, optionName: string) => {
       try {
-        const rawOptions = optionsString || "[]";
-        console.log(`${optionName} raw:`, rawOptions);
+        if (!optionsString) return [];
         
-        const options = JSON.parse(rawOptions);
-        console.log(`${optionName} parsed:`, options);
+        const options = JSON.parse(optionsString);
+        if (!Array.isArray(options)) return [];
         
-        // Handle both old string format and new object format
-        const processedOptions = options.map((opt: any) => {
-          if (typeof opt === 'string') {
-            return { name: opt, priceAddition: 0 };
-          }
-          return {
-            name: opt?.name || '',
-            priceAddition: parseFloat(opt?.priceAddition) || 0
-          };
-        }).filter((opt: any) => opt.name && opt.name.trim() !== "");
-        
-        console.log(`${optionName} processed:`, processedOptions);
-        return processedOptions;
+        return options
+          .map((opt: any) => {
+            if (typeof opt === 'string') {
+              return { name: opt, priceAddition: 0 };
+            }
+            return {
+              name: String(opt?.name || ''),
+              priceAddition: parseFloat(opt?.priceAddition) || 0
+            };
+          })
+          .filter((opt: any) => opt.name && opt.name.trim() !== "");
       } catch (error) {
         console.error(`Error parsing ${optionName}:`, error);
         return [];
@@ -65,118 +77,156 @@ export async function POST(req: Request) {
     const sideOptions = parseOptions(formData.get("sideOptions") as string, "sideOptions");
     const materialOptions = parseOptions(formData.get("materialOptions") as string, "materialOptions");
 
-    const quantityOptions = JSON.parse(formData.get("quantityOptions") as string || "[]")
-      .filter((opt: any) => opt && opt.quantity && opt.price)
-      .map((opt: any) => ({
-        quantity: parseInt(opt.quantity),
-        price: parseFloat(opt.price)
-      }));
-
-    // Validate required fields
-    if (!title || !description || isNaN(price) || !category) {
-      return NextResponse.json(
-        { success: false, error: "Missing required fields" }, 
-        { status: 400 }
-      );
-    }
-
-    // Save images
-    const imageFiles = formData.getAll("images") as File[];
-    const imagePaths: string[] = [];
-
-    // Ensure upload directory exists
-    const uploadDir = path.join(process.cwd(), "public/uploads");
+    // Parse quantity options
+    let quantityOptions: any[] = [];
     try {
-      await mkdir(uploadDir, { recursive: true });
-    } catch (err) {
-      console.error("Error creating upload directory:", err);
-    }
-
-    for (const file of imageFiles) {
-      if (file.size === 0) continue;
-      
-      try {
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        const fileName = `${uuidv4()}-${file.name}`;
-        const filePath = path.join(uploadDir, fileName);
-        await writeFile(filePath, buffer);
-        imagePaths.push(`/uploads/${fileName}`);
-      } catch (err) {
-        console.error("Error saving image:", err);
+      const quantityData = formData.get("quantityOptions") as string;
+      if (quantityData) {
+        quantityOptions = JSON.parse(quantityData)
+          .filter((opt: any) => opt && opt.quantity && opt.price)
+          .map((opt: any) => ({
+            quantity: parseInt(opt.quantity),
+            price: parseFloat(opt.price)
+          }));
       }
+    } catch (error) {
+      console.error("Error parsing quantity options:", error);
+      quantityOptions = [];
     }
 
-    // Create product data
+    // Handle image uploads
+    const imageFiles = formData.getAll("images") as File[];
+    const images: string[] = [];
+
+    if (imageFiles.length > 0 && imageFiles[0].size > 0) {
+      // Ensure upload directory exists
+      const uploadDir = path.join(process.cwd(), "public/uploads");
+      try {
+        await mkdir(uploadDir, { recursive: true });
+        console.log("Upload directory ready:", uploadDir);
+      } catch (err) {
+        console.error("Error creating upload directory:", err);
+        return NextResponse.json(
+          { success: false, error: "فشل في إنشاء مجلد التحميل" },
+          { status: 500 }
+        );
+      }
+
+      // Process each image
+      for (const file of imageFiles) {
+        if (file.size === 0) {
+          console.log("Skipping empty file");
+          continue;
+        }
+        
+        try {
+          const bytes = await file.arrayBuffer();
+          const buffer = Buffer.from(bytes);
+          
+          // Create unique filename
+          const fileExtension = file.name.split('.').pop() || 'jpg';
+          const fileName = `${uuidv4()}.${fileExtension}`;
+          const filePath = path.join(uploadDir, fileName);
+          
+          await writeFile(filePath, buffer);
+          
+          // Use the correct path that will be accessible from the browser
+          const imageUrl = `/uploads/${fileName}`;
+          images.push(imageUrl);
+          
+          console.log("Image saved successfully:", imageUrl);
+        } catch (err) {
+          console.error("Error saving image:", err);
+          return NextResponse.json(
+            { success: false, error: "فشل في حفظ الصور" },
+            { status: 500 }
+          );
+        }
+      }
+    } else {
+      // If no images uploaded, use placeholder
+      images.push("/placeholder.svg");
+    }
+
+    // Create product data object
     const productData = {
       title: title.trim(),
       description: description.trim(),
-      price: price,
+      price: priceValue,
       category: category.trim(),
-      featured: featured,
-      sizeOptions: sizeOptions,
-      sideOptions: sideOptions,
-      materialOptions: materialOptions,
-      quantityOptions: quantityOptions,
-      image: imagePaths.length ? imagePaths : ["/placeholder.svg"],
+      featured: featured === "true",
+      status: status,
+      image: images, // Use 'image' field to match your schema
+      sizeOptions,
+      sideOptions,
+      materialOptions,
+      quantityOptions
     };
 
-    console.log("Final product data:", JSON.stringify(productData, null, 2));
+    console.log("Creating product with data:", JSON.stringify(productData, null, 2));
 
-    // Create and validate product
+    // Create and save product
     const product = new Product(productData);
-
-    // Test the schema by checking what Mongoose expects
-    console.log("SizeOptions schema type:", Product.schema.path('sizeOptions'));
-    console.log("SideOptions schema type:", Product.schema.path('sideOptions'));
-    console.log("MaterialOptions schema type:", Product.schema.path('materialOptions'));
-
+    
+    // Validate the product
     const validationError = product.validateSync();
     if (validationError) {
-      console.error("Detailed validation error:", validationError);
+      console.error("Validation error details:", validationError);
+      const errorMessages = Object.values(validationError.errors).map((err: any) => err.message);
       return NextResponse.json(
         { 
           success: false, 
-          error: "Validation failed",
-          details: validationError.errors 
+          error: "فشل في التحقق من البيانات",
+          details: errorMessages 
         }, 
         { status: 400 }
       );
     }
 
-    await product.save();
+    const savedProduct = await product.save();
+    console.log("Product saved successfully:", savedProduct._id);
 
     return NextResponse.json({ 
       success: true, 
-      product,
-      message: "Product created successfully" 
-    });
+      product: savedProduct,
+      message: "تم إنشاء المنتج بنجاح" 
+    }, { status: 201 });
+
   } catch (err: any) {
-    console.error("Error saving product:", err);
+    console.error("❌ Error in POST /api/products:", err);
     
-    // More detailed error response
+    // Handle different types of errors
     if (err.name === 'ValidationError') {
       const errorDetails = Object.values(err.errors).map((e: any) => ({
         field: e.path,
-        message: e.message,
-        value: e.value
+        message: e.message
       }));
       
       return NextResponse.json(
         { 
           success: false, 
-          error: "Validation failed",
+          error: "فشل في التحقق من البيانات",
           details: errorDetails
         }, 
         { status: 400 }
       );
     }
     
+    if (err.code === 11000) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "منتج بنفس الاسم موجود مسبقاً" 
+        }, 
+        { status: 409 }
+      );
+    }
+    
     return NextResponse.json(
       { 
         success: false, 
-        error: "Failed to save product",
-        details: err.message 
+        error: "فشل في حفظ المنتج",
+        message: err.message 
       }, 
       { status: 500 }
     );

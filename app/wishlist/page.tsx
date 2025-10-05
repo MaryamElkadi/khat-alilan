@@ -5,7 +5,7 @@ import { Heart, ShoppingCart, X } from "lucide-react"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { useCart } from "@/lib/cart-context"
+import { useCart } from "@/lib/CartProvider"
 
 const wishlistItems = [
   {

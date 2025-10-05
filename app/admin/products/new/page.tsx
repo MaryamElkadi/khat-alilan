@@ -312,14 +312,29 @@ const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setUploading(true);
 
+  // Validate required fields
+  if (!formData.title || !formData.description || !formData.price || !formData.category) {
+    alert("يرجى ملء جميع الحقول المطلوبة");
+    setUploading(false);
+    return;
+  }
+
+  // Validate images
+  if (files.length === 0) {
+    alert("يرجى إضافة صورة واحدة على الأقل للمنتج");
+    setUploading(false);
+    return;
+  }
+
   const productFormData = new FormData();
   productFormData.append("title", formData.title);
   productFormData.append("price", formData.price);
   productFormData.append("description", formData.description); 
   productFormData.append("category", formData.category);
   productFormData.append("featured", String(formData.featured));
+  productFormData.append("status", formData.status);
 
-    // Prepare options with price additions
+  // Prepare options with price additions
   const preparedSizeOptions = sizeOptions
     .filter(opt => opt.name.trim() !== "")
     .map(opt => ({
@@ -345,19 +360,18 @@ const handleSubmit = async (e: React.FormEvent) => {
   productFormData.append("sideOptions", JSON.stringify(preparedSideOptions));
   productFormData.append("materialOptions", JSON.stringify(preparedMaterialOptions));
 
+  // Prepare quantity options
+  const parsedQuantityOptions = quantities
+    .filter((q) => q.quantity && q.price)
+    .map((q) => ({
+      quantity: parseInt(q.quantity),
+      price: parseFloat(q.price),
+      total: q.total,
+    }));
 
-  // ✨ جهز بيانات الكمية مع السعر
-const parsedQuantityOptions = quantities
-  .filter((q) => q.quantity && q.price)
-  .map((q) => ({
-    quantity: parseInt(q.quantity),
-    price: parseFloat(q.price),
-    total: q.total,
-  }));
+  productFormData.append("quantityOptions", JSON.stringify(parsedQuantityOptions));
 
-productFormData.append("quantityOptions", JSON.stringify(parsedQuantityOptions));
-
-
+  // Append all image files
   files.forEach((file) => {
     productFormData.append("images", file);
   });
@@ -368,14 +382,18 @@ productFormData.append("quantityOptions", JSON.stringify(parsedQuantityOptions))
       body: productFormData,
     });
 
+    const result = await res.json();
+
     if (res.ok) {
+      alert("تم حفظ المنتج بنجاح!");
       router.push("/admin/products");
     } else {
-      alert("فشل في الحفظ");
+      console.error("Server error:", result);
+      alert(`فشل في الحفظ: ${result.error || "حدث خطأ غير معروف"}`);
     }
   } catch (error) {
-    console.error("Error saving product:", error);
-    alert("حدث خطأ أثناء حفظ المنتج");
+    console.error("Network error:", error);
+    alert("حدث خطأ في الشبكة أثناء حفظ المنتج");
   } finally {
     setUploading(false);
   }
@@ -714,83 +732,38 @@ const calculateTotal = (price: number, quantity: number) => {
             </Card>
 
             {/* Quick Preview */}
-            <Card>
-              <CardHeader>
-                <CardTitle>معاينة سريعة</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-                    {files[0] ? (
-                      <img
-                        src={URL.createObjectURL(files[0])}
-                        alt="معاينة"
-                        className="object-cover w-full h-full rounded-lg"
-                      />
-                    ) : (
-                      <span className="text-muted-foreground text-sm">صورة المنتج</span>
-                    )}
-                  </div>
-                  <h3 className="font-semibold">{formData.title || "اسم المنتج"}</h3>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {formData.description || "وصف المنتج سيظهر هنا..."}
-                  </p>
-                  <div className="text-lg font-bold text-brand-yellow">
-                    {formData.price ? `${formData.price} ر.س` : "السعر"}
-                  </div>
-                  {files.length > 1 && (
-                    <div className="text-xs text-muted-foreground">
-                      + {files.length - 1} صورة إضافية
-                    </div>
-                  )}
-                </div>
-            <div>
-  <Label>الكميات مع الأسعار</Label>
-  <div className="space-y-3 mt-3">
-    {quantities.map((q, index) => (
-      <div key={index} className="flex items-center gap-3">
-        <Input
-          type="number"
-          placeholder="الكمية"
-          value={q.quantity}
-          onChange={(e) => handleQuantityChange(index, "quantity", e.target.value)}
-        />
-        <Input
-          type="number"
-          placeholder="السعر للوحدة"
-          value={q.price}
-          onChange={(e) => handleQuantityChange(index, "price", e.target.value)}
-        />
-        {/* <span className="font-medium w-28 text-center">
-          {q.total > 0 ? `${q.total.toFixed(2)} ر.س` : "--"}
-        </span> */}
-        {index > 0 && (
-          <Button
-            type="button"
-            variant="destructive"
-            size="icon"
-            onClick={() => removeQuantityRow(index)}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+         <Card>
+  <CardHeader>
+    <CardTitle>معاينة سريعة</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div className="space-y-3">
+      <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
+        {files[0] ? (
+          <img
+            src={URL.createObjectURL(files[0])}
+            alt="معاينة"
+            className="object-cover w-full h-full rounded-lg"
+          />
+        ) : (
+          <span className="text-muted-foreground text-sm">صورة المنتج</span>
         )}
       </div>
-    ))}
-    <Button
-      type="button"
-      variant="outline"
-      className="flex items-center gap-2"
-      onClick={addQuantityRow}
-    >
-      + إضافة كمية أخرى
-    </Button>
-  </div>
-</div>
-
-
-              </CardContent>
-            </Card>
-
+      <h3 className="font-semibold">{formData.title || "اسم المنتج"}</h3>
+      <p className="text-sm text-muted-foreground line-clamp-2">
+        {formData.description || "وصف المنتج سيظهر هنا..."}
+      </p>
+      <div className="text-lg font-bold text-brand-yellow">
+        {formData.price ? `${formData.price} ر.س` : "السعر"}
+      </div>
+      {files.length > 1 && (
+        <div className="text-xs text-muted-foreground">
+          + {files.length - 1} صورة إضافية
+        </div>
+      )}
+    </div>
+  </CardContent>
+</Card>
             {/* Action Buttons */}
             <div className="space-y-3">
               <Button 

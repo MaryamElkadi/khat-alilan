@@ -1,6 +1,6 @@
 "use client"
 
-import { useCart } from "./CartProvider"
+import { useCart } from "@/lib/CartProvider"
 
 export default function CartPage() {
   const { items, total, removeItem, updateQuantity } = useCart()

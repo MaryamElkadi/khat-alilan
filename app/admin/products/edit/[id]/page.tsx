@@ -53,16 +53,11 @@ export default function EditProductPage() {
   const params = useParams()
   const id = params?.id as string
   const inputRef = useRef<HTMLInputElement | null>(null)
-
-  // State for custom options
-  const [customSizes, setCustomSizes] = useState<string[]>([""])
-  const [customSides, setCustomSides] = useState<string[]>([""])
-  const [customMaterials, setCustomMaterials] = useState<string[]>([""])
-  const [sizeOptions, setSizeOptions] = useState<string[]>(["A4", "A3", "A5"])
-  const [sideOptions, setSideOptions] = useState<string[]>(["وجه واحد", "وجهين"])
-  const [materialOptions, setMaterialOptions] = useState<string[]>(["ورق عادي", "ورق لامع", "بلاستيك"])
-
+  const [sizeOptions, setSizeOptions] = useState<string[]>([])
+  const [sideOptions, setSideOptions] = useState<string[]>([])
+  const [materialOptions, setMaterialOptions] = useState<string[]>([])
   
+
 
   const [formData, setFormData] = useState<FormData>({
     title: "",
@@ -78,11 +73,19 @@ export default function EditProductPage() {
     quantityOptions: []
   })
 
+  const [quantities, setQuantities] = useState<QuantityRow[]>([
+    { quantity: "", price: "", total: 0 }
+  ]);
+
   const [calculatedPrice, setCalculatedPrice] = useState({
     subtotal: 0,
     tax: 0,
     total: 0,
   })
+// Add this function to remove existing images
+const removeExistingImage = (index: number) => {
+  setExistingImages(prev => prev.filter((_, i) => i !== index));
+};
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -90,6 +93,7 @@ export default function EditProductPage() {
         const res = await fetch(`/api/products/${id}`)
         if (res.ok) {
           const data = await res.json()
+          console.log("Fetched product data:", data); // Debug log
           
           setFormData({
             title: data.title || "",
@@ -107,17 +111,23 @@ export default function EditProductPage() {
 
           setExistingImages(data.image || [])
           
-          // Set options from product data
+          // FIXED: Extract names from option objects
           if (data.sizeOptions && data.sizeOptions.length > 0) {
-            setSizeOptions(data.sizeOptions)
+            setSizeOptions(data.sizeOptions.map((opt: any) => opt.name || opt))
+          } else {
+            setSizeOptions(["A4", "A3", "A5"]) // Default values
           }
           
           if (data.sideOptions && data.sideOptions.length > 0) {
-            setSideOptions(data.sideOptions)
+            setSideOptions(data.sideOptions.map((opt: any) => opt.name || opt))
+          } else {
+            setSideOptions(["وجه واحد", "وجهين"]) // Default values
           }
           
           if (data.materialOptions && data.materialOptions.length > 0) {
-            setMaterialOptions(data.materialOptions)
+            setMaterialOptions(data.materialOptions.map((opt: any) => opt.name || opt))
+          } else {
+            setMaterialOptions(["ورق عادي", "ورق لامع", "بلاستيك"]) // Default values
           }
           
           // Set quantity options
@@ -128,7 +138,11 @@ export default function EditProductPage() {
               total: calculateTotal(q.price, q.quantity)
             }))
             setQuantities(qtyRows)
+          } else {
+            setQuantities([{ quantity: "", price: "", total: 0 }])
           }
+        } else {
+          console.error("Failed to fetch product:", res.status);
         }
       } catch (error) {
         console.error("خطأ في تحميل المنتج", error)
@@ -194,38 +208,6 @@ export default function EditProductPage() {
     handleFiles(e.dataTransfer.files);
   };
 
-  const handleCustomChange = (
-    type: "size" | "side" | "material",
-    index: number,
-    value: string
-  ) => {
-    if (type === "size") {
-      const updated = [...customSizes];
-      updated[index] = value;
-      setCustomSizes(updated);
-    } else if (type === "side") {
-      const updated = [...customSides];
-      updated[index] = value;
-      setCustomSides(updated);
-    } else if (type === "material") {
-      const updated = [...customMaterials];
-      updated[index] = value;
-      setCustomMaterials(updated);
-    }
-  };
-
-  const addCustomField = (type: "size" | "side" | "material") => {
-    if (type === "size") setCustomSizes([...customSizes, ""]);
-    if (type === "side") setCustomSides([...customSides, ""]);
-    if (type === "material") setCustomMaterials([...customMaterials, ""]);
-  };
-
-  const removeCustomField = (type: "size" | "side" | "material", index: number) => {
-    if (type === "size") setCustomSizes(customSizes.filter((_, i) => i !== index));
-    if (type === "side") setCustomSides(customSides.filter((_, i) => i !== index));
-    if (type === "material") setCustomMaterials(customMaterials.filter((_, i) => i !== index));
-  };
-
   const handleQuantityChange = (index: number, field: "quantity" | "price", value: string) => {
     const newQuantities = [...quantities];
     newQuantities[index][field] = value;
@@ -236,16 +218,7 @@ export default function EditProductPage() {
     newQuantities[index].total = calculateTotal(price, qty);
     setQuantities(newQuantities);
   };
-type QuantityRow = {
-  quantity: string;
-  price: string;
-  total: number;
-};
 
-// The initial state should match the type
-const [quantities, setQuantities] = useState<QuantityRow[]>([
-  { quantity: "", price: "", total: 0 }, // Added missing price field
-]);
   const addQuantityRow = () => {
     setQuantities([...quantities, { quantity: "", price: "", total: 0 }]);
   };
@@ -275,10 +248,22 @@ const [quantities, setQuantities] = useState<QuantityRow[]>([
       form.append("featured", String(formData.featured))
       form.append("status", formData.status)
 
-      // Add options
-      form.append("sizeOptions", JSON.stringify(sizeOptions.concat(customSizes).filter(opt => opt.trim() !== "")))
-      form.append("sideOptions", JSON.stringify(sideOptions.concat(customSides).filter(opt => opt.trim() !== "")))
-      form.append("materialOptions", JSON.stringify(materialOptions.concat(customMaterials).filter(opt => opt.trim() !== "")))
+      // FIXED: Convert string arrays to proper object structure
+      const sizeOptionsData = sizeOptions
+        .filter(opt => opt.trim() !== "")
+        .map(opt => ({ name: opt, priceAddition: 0 }));
+      
+      const sideOptionsData = sideOptions
+        .filter(opt => opt.trim() !== "")
+        .map(opt => ({ name: opt, priceAddition: 0 }));
+      
+      const materialOptionsData = materialOptions
+        .filter(opt => opt.trim() !== "")
+        .map(opt => ({ name: opt, priceAddition: 0 }));
+
+      form.append("sizeOptions", JSON.stringify(sizeOptionsData))
+      form.append("sideOptions", JSON.stringify(sideOptionsData))
+      form.append("materialOptions", JSON.stringify(materialOptionsData))
       
       // Add quantity options
       const parsedQuantityOptions = quantities
@@ -292,27 +277,30 @@ const [quantities, setQuantities] = useState<QuantityRow[]>([
       // Add images
       if (images.length > 0) {
         images.forEach((file) => form.append("images", file))
-      } else {
-        form.append("existingImages", JSON.stringify(existingImages))
       }
+      
+      // Always send existing images to prevent losing them
+      form.append("existingImages", JSON.stringify(existingImages))
 
       const res = await fetch(`/api/products/${id}`, {
         method: "PUT",
         body: form,
       })
 
-      if (!res.ok) throw new Error("فشل تعديل المنتج")
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "فشل تعديل المنتج");
+      }
 
       alert("تم تعديل المنتج وحفظه في قاعدة البيانات ✅")
       router.push("/admin/products")
-    } catch (error) {
-      console.error(error)
-      alert("حدث خطأ أثناء تعديل المنتج ❌")
+    } catch (error: any) {
+      console.error("Error updating product:", error)
+      alert(`حدث خطأ أثناء تعديل المنتج ❌: ${error.message}`)
     } finally {
       setUploading(false)
     }
   }
-
   return (
     <div className="p-8">
       {/* Header */}
@@ -583,68 +571,93 @@ const [quantities, setQuantities] = useState<QuantityRow[]>([
             </Card>
 
             {/* Image Upload */}
-            <Card>
-              <CardHeader>
-                <CardTitle>صور المنتج</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div
-                  className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer"
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
-                  onClick={triggerFileInput}
-                >
-                  <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground mb-4">اسحب الصور هنا أو انقر للتحديد</p>
-                  <Button type="button" variant="outline" onClick={triggerFileInput}>
-                    اختيار الصور
-                  </Button>
+         <Card>
+  <CardHeader>
+    <CardTitle>صور المنتج</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div
+      className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      onClick={triggerFileInput}
+    >
+      <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+      <p className="text-muted-foreground mb-4">اسحب الصور هنا أو انقر للتحديد</p>
+      <Button type="button" variant="outline" onClick={triggerFileInput}>
+        اختيار الصور
+      </Button>
 
-                  {/* Preview selected images OR existing */}
-                  <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {images.length > 0
-                      ? images.map((file, idx) => (
-                          <div key={idx} className="relative group">
-                            <img
-                              src={URL.createObjectURL(file)}
-                              alt={file.name}
-                              className="w-full h-24 object-cover rounded-lg"
-                            />
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeFile(idx);
-                              }}
-                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))
-                      : existingImages.map((url, idx) => (
-                          <div key={idx} className="relative">
-                            <img
-                              src={url}
-                              alt={`existing-${idx}`}
-                              className="w-full h-24 object-cover rounded-lg"
-                            />
-                          </div>
-                        ))}
-                  </div>
+      {/* Preview selected images OR existing */}
+      <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
+        {/* Show new images first */}
+        {images.map((file, idx) => (
+          <div key={`new-${idx}`} className="relative group">
+            <img
+              src={URL.createObjectURL(file)}
+              alt={file.name}
+              className="w-full h-24 object-cover rounded-lg"
+            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeFile(idx);
+              }}
+              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <X className="h-3 w-3" />
+            </button>
+            <div className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-1 rounded">
+              جديد
+            </div>
+          </div>
+        ))}
+        
+        {/* Show existing images */}
+        {existingImages.map((url, idx) => (
+          <div key={`existing-${idx}`} className="relative group">
+            <img
+              src={url}
+              alt={`existing-${idx}`}
+              className="w-full h-24 object-cover rounded-lg"
+            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeExistingImage(idx);
+              }}
+              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <X className="h-3 w-3" />
+            </button>
+            <div className="absolute bottom-1 left-1 bg-gray-500 text-white text-xs px-1 rounded">
+              موجود
+            </div>
+          </div>
+        ))}
+      </div>
 
-                  <input
-                    type="file"
-                    id="product-image-input"
-                    className="hidden"
-                    accept="image/*"
-                    multiple
-                    onChange={handleImageChange}
-                    ref={inputRef}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+      {/* Show message when no images */}
+      {images.length === 0 && existingImages.length === 0 && (
+        <div className="mt-4 text-sm text-muted-foreground">
+          لم يتم إضافة أي صور بعد
+        </div>
+      )}
+
+      <input
+        type="file"
+        id="product-image-input"
+        className="hidden"
+        accept="image/*"
+        multiple
+        onChange={handleImageChange}
+        ref={inputRef}
+      />
+    </div>
+  </CardContent>
+</Card>
           </div>
 
           {/* Sidebar */}

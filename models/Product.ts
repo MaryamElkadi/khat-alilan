@@ -6,6 +6,24 @@ if (mongoose.models.Product) {
   delete mongoose.models.Product;
 }
 
+let isConnected = false;
+
+export async function connectDB() {
+  if (isConnected) return;
+
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI as string, {
+      dbName: "yourdbname", // 🔹 change if needed
+    });
+
+    isConnected = true;
+    console.log("✅ MongoDB connected:", conn.connection.host);
+  } catch (error) {
+    console.error("❌ MongoDB connection error:", error);
+    throw error;
+  }
+}
+
 const ProductSchema = new mongoose.Schema({
   title: { type: String, required: true },  
   description: { type: String, required: true },
@@ -13,6 +31,7 @@ const ProductSchema = new mongoose.Schema({
   image: { type: [String], default: ["/placeholder.svg"] },
   featured: { type: Boolean, default: false },
   category: { type: String, required: true },
+  status: { type: String, default: "نشط" }, // Added missing status field
 
   // Updated schema for options with price additions - FIXED STRUCTURE
   sizeOptions: { 

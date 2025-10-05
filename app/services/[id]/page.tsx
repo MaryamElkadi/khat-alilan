@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Star, Clock, Palette, Globe, Camera, Megaphone, PenTool, Monitor, Brush, Scissors, Sparkles } from "lucide-react"
-import RequestServiceDialog from "@/request-service"
+import RequestServiceDialog from "@/components/RequestServiceDialog"
 
 // Define the Service type
 interface Service {

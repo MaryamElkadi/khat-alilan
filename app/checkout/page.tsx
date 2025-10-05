@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
-import { useCart } from "@/lib/cart-context"
+import { useCart } from "@/lib/CartProvider"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 
