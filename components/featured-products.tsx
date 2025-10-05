@@ -161,13 +161,13 @@ export function FeaturedProducts() {
 
                   <CardFooter className="p-6 pt-0">
                     <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full">
-                      <Button
-                        onClick={() => addToCart(product)}
-                        className="w-full bg-brand-blue hover:bg-brand-blue/90 text-white relative overflow-hidden group"
-                      >
-                        <ShoppingCart className="h-4 w-4 ml-2" />
-                        أضف إلى السلة
-                      </Button>
+                            {/* <Button
+                              onClick={() => addToCart(product)}
+                              className="w-full bg-brand-blue hover:bg-brand-blue/90 text-white relative overflow-hidden group"
+                            >
+                              <ShoppingCart className="h-4 w-4 ml-2" />
+                              أضف إلى السلة
+                            </Button> */}
                     </motion.div>
                   </CardFooter>
                 </div>
