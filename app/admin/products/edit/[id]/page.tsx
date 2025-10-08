@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { Save, ArrowRight, Upload, X } from "lucide-react"
+import { Save, ArrowRight, Upload, X, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -57,8 +57,6 @@ export default function EditProductPage() {
   const [sideOptions, setSideOptions] = useState<string[]>([])
   const [materialOptions, setMaterialOptions] = useState<string[]>([])
   
-
-
   const [formData, setFormData] = useState<FormData>({
     title: "",
     description: "",
@@ -82,10 +80,11 @@ export default function EditProductPage() {
     tax: 0,
     total: 0,
   })
-// Add this function to remove existing images
-const removeExistingImage = (index: number) => {
-  setExistingImages(prev => prev.filter((_, i) => i !== index));
-};
+
+  // Add this function to remove existing images
+  const removeExistingImage = (index: number) => {
+    setExistingImages(prev => prev.filter((_, i) => i !== index));
+  };
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -224,13 +223,46 @@ const removeExistingImage = (index: number) => {
   };
 
   const removeQuantityRow = (index: number) => {
-    setQuantities(quantities.filter((_, i) => i !== index));
+    if (quantities.length > 1) {
+      setQuantities(quantities.filter((_, i) => i !== index));
+    }
   };
 
   const calculateTotal = (price: number, quantity: number) => {
     const subtotal = price * quantity;
     const tax = subtotal * 0.15;
     return subtotal + tax;
+  };
+
+  // Function to upload images to Vercel Blob
+  const uploadImagesToBlob = async (files: File[]): Promise<string[]> => {
+    const uploadedUrls: string[] = [];
+    
+    for (const file of files) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.url) {
+            uploadedUrls.push(data.url);
+            console.log('✅ Image uploaded to Vercel Blob:', data.url);
+          }
+        } else {
+          console.error('Failed to upload image:', await response.text());
+        }
+      } catch (error) {
+        console.error('Error uploading image:', error);
+      }
+    }
+    
+    return uploadedUrls;
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -240,60 +272,77 @@ const removeExistingImage = (index: number) => {
     setUploading(true)
 
     try {
-      const form = new FormData()
-      form.append("title", formData.title)
-      form.append("description", formData.description)
-      form.append("price", formData.price)
-      form.append("category", formData.category)
-      form.append("featured", String(formData.featured))
-      form.append("status", formData.status)
+      // Validate required fields
+      if (!formData.title || !formData.description || !formData.price || !formData.category) {
+        alert("يرجى ملء جميع الحقول المطلوبة");
+        setUploading(false);
+        return;
+      }
 
-      // FIXED: Convert string arrays to proper object structure
-      const sizeOptionsData = sizeOptions
-        .filter(opt => opt.trim() !== "")
-        .map(opt => ({ name: opt, priceAddition: 0 }));
-      
-      const sideOptionsData = sideOptions
-        .filter(opt => opt.trim() !== "")
-        .map(opt => ({ name: opt, priceAddition: 0 }));
-      
-      const materialOptionsData = materialOptions
-        .filter(opt => opt.trim() !== "")
-        .map(opt => ({ name: opt, priceAddition: 0 }));
+      // Validate quantity options
+      const validQuantityOptions = quantities.filter((q) => q.quantity && q.price && q.quantity.trim() !== "" && q.price.trim() !== "");
+      if (validQuantityOptions.length === 0) {
+        alert("يرجى إضافة خيار كمية واحد على الأقل");
+        setUploading(false);
+        return;
+      }
 
-      form.append("sizeOptions", JSON.stringify(sizeOptionsData))
-      form.append("sideOptions", JSON.stringify(sideOptionsData))
-      form.append("materialOptions", JSON.stringify(materialOptionsData))
-      
-      // Add quantity options
-      const parsedQuantityOptions = quantities
-        .filter((q) => q.quantity && q.price)
-        .map((q) => ({
+      // Upload new images to Vercel Blob first
+      let newImageUrls: string[] = [];
+      if (images.length > 0) {
+        console.log('🔄 Uploading new images to Vercel Blob...');
+        newImageUrls = await uploadImagesToBlob(images);
+      }
+
+      // Combine existing images (that weren't removed) with new uploaded images
+      const allImages = [...existingImages, ...newImageUrls];
+
+      // Prepare the update data
+      const updateData = {
+        title: formData.title,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        category: formData.category,
+        featured: formData.featured,
+        status: formData.status,
+        image: allImages, // Send combined images array
+        sizeOptions: sizeOptions
+          .filter(opt => opt.trim() !== "")
+          .map(opt => ({ name: opt, priceAddition: 0 })),
+        sideOptions: sideOptions
+          .filter(opt => opt.trim() !== "")
+          .map(opt => ({ name: opt, priceAddition: 0 })),
+        materialOptions: materialOptions
+          .filter(opt => opt.trim() !== "")
+          .map(opt => ({ name: opt, priceAddition: 0 })),
+        quantityOptions: validQuantityOptions.map((q) => ({
           quantity: parseInt(q.quantity),
           price: parseFloat(q.price),
-        }));
-      form.append("quantityOptions", JSON.stringify(parsedQuantityOptions))
+        }))
+      };
 
-      // Add images
-      if (images.length > 0) {
-        images.forEach((file) => form.append("images", file))
-      }
-      
-      // Always send existing images to prevent losing them
-      form.append("existingImages", JSON.stringify(existingImages))
+      console.log('📤 Sending update data:', updateData);
 
       const res = await fetch(`/api/products/${id}`, {
         method: "PUT",
-        body: form,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
       })
 
+      const result = await res.json();
+
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "فشل تعديل المنتج");
+        throw new Error(result.error || "فشل تعديل المنتج");
       }
 
-      alert("تم تعديل المنتج وحفظه في قاعدة البيانات ✅")
-      router.push("/admin/products")
+      if (result.success) {
+        alert("تم تعديل المنتج وحفظه في قاعدة البيانات ✅")
+        router.push("/admin/products")
+      } else {
+        throw new Error(result.error || "فشل تعديل المنتج");
+      }
     } catch (error: any) {
       console.error("Error updating product:", error)
       alert(`حدث خطأ أثناء تعديل المنتج ❌: ${error.message}`)
@@ -301,6 +350,7 @@ const removeExistingImage = (index: number) => {
       setUploading(false)
     }
   }
+
   return (
     <div className="p-8">
       {/* Header */}
@@ -346,7 +396,7 @@ const removeExistingImage = (index: number) => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="price">السعر (ر.س) *</Label>
+                    <Label htmlFor="price">السعر الأساسي (ر.س) *</Label>
                     <Input
                       id="price"
                       type="number"
@@ -378,7 +428,7 @@ const removeExistingImage = (index: number) => {
                 {/* Tax and Total Price Display */}
                 {calculatedPrice.subtotal > 0 && (
                   <div className="bg-gray-100 p-4 rounded-lg text-black">
-                    <h4 className="font-semibold text-sm mb-2">حساب السعر</h4>
+                    <h4 className="font-semibold text-sm mb-2">حساب السعر الأساسي</h4>
                     <div className="flex justify-between text-sm">
                       <p>السعر الأساسي:</p>
                       <p className="font-medium">{calculatedPrice.subtotal.toFixed(2)} ر.س</p>
@@ -393,6 +443,77 @@ const removeExistingImage = (index: number) => {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Enhanced Quantity Options Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>خيارات الكمية والأسعار</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  عدل خيارات الكمية المختلفة مع أسعارها (مثال: 100 نسخة بسعر 1500 ريال، 500 نسخة بسعر 6000 ريال)
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {quantities.map((q, index) => (
+                    <div key={index} className="flex items-center gap-3 p-4 border rounded-lg bg-gray-50">
+                      <div className="flex-1">
+                        <Label htmlFor={`quantity-${index}`}>الكمية *</Label>
+                        <Input
+                          id={`quantity-${index}`}
+                          type="number"
+                          placeholder="مثال: 100"
+                          value={q.quantity}
+                          onChange={(e) => handleQuantityChange(index, "quantity", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label htmlFor={`price-${index}`}>السعر (ر.س) *</Label>
+                        <Input
+                          id={`price-${index}`}
+                          type="number"
+                          placeholder="مثال: 1500"
+                          value={q.price}
+                          onChange={(e) => handleQuantityChange(index, "price", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="w-32 text-center">
+                        <Label>الإجمالي شامل الضريبة</Label>
+                        <div className="font-bold text-lg text-brand-yellow mt-1">
+                          {q.total > 0 ? `${q.total.toFixed(2)} ر.س` : "--"}
+                        </div>
+                      </div>
+                      {quantities.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => removeQuantityRow(index)}
+                          className="mt-6"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full flex items-center justify-center gap-2"
+                    onClick={addQuantityRow}
+                  >
+                    <Plus className="h-4 w-4" />
+                    إضافة خيار كمية آخر
+                  </Button>
+                  
+                  <div className="text-sm text-muted-foreground bg-blue-50 p-3 rounded-lg">
+                    💡 <strong>ملاحظة:</strong> هذه الخيارات ستظهر للعميل ليختار الكمية المناسبة مع السعر المحدد لكل كمية.
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -522,142 +643,94 @@ const removeExistingImage = (index: number) => {
               </CardContent>
             </Card>
 
-            {/* Quantity Options */}
+            {/* Image Upload */}
             <Card>
               <CardHeader>
-                <CardTitle>خيارات الكمية والأسعار</CardTitle>
+                <CardTitle>صور المنتج</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {quantities.map((q, index) => (
-                    <div key={index} className="flex items-center gap-3">
-                      <Input
-                        type="number"
-                        placeholder="الكمية"
-                        value={q.quantity}
-                        onChange={(e) => handleQuantityChange(index, "quantity", e.target.value)}
-                      />
-                      <Input
-                        type="number"
-                        placeholder="السعر للوحدة"
-                        value={q.price}
-                        onChange={(e) => handleQuantityChange(index, "price", e.target.value)}
-                      />
-                      <span className="font-medium w-28 text-center">
-                        {q.total > 0 ? `${q.total.toFixed(2)} ر.س` : "--"}
-                      </span>
-                      {index > 0 && (
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => removeQuantityRow(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex items-center gap-2"
-                    onClick={addQuantityRow}
-                  >
-                    + إضافة كمية أخرى
+                <div
+                  className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer"
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  onClick={triggerFileInput}
+                >
+                  <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground mb-4">اسحب الصور هنا أو انقر للتحديد</p>
+                  <Button type="button" variant="outline" onClick={triggerFileInput}>
+                    اختيار الصور
                   </Button>
+
+                  {/* Preview selected images OR existing */}
+                  <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {/* Show new images first */}
+                    {images.map((file, idx) => (
+                      <div key={`new-${idx}`} className="relative group">
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={file.name}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFile(idx);
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                        <div className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-1 rounded">
+                          جديد
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Show existing images */}
+                    {existingImages.map((url, idx) => (
+                      <div key={`existing-${idx}`} className="relative group">
+                        <img
+                          src={url}
+                          alt={`existing-${idx}`}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeExistingImage(idx);
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                        <div className="absolute bottom-1 left-1 bg-gray-500 text-white text-xs px-1 rounded">
+                          موجود
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Show message when no images */}
+                  {images.length === 0 && existingImages.length === 0 && (
+                    <div className="mt-4 text-sm text-muted-foreground">
+                      لم يتم إضافة أي صور بعد
+                    </div>
+                  )}
+
+                  <input
+                    type="file"
+                    id="product-image-input"
+                    className="hidden"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageChange}
+                    ref={inputRef}
+                  />
                 </div>
               </CardContent>
             </Card>
-
-            {/* Image Upload */}
-         <Card>
-  <CardHeader>
-    <CardTitle>صور المنتج</CardTitle>
-  </CardHeader>
-  <CardContent>
-    <div
-      className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer"
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      onClick={triggerFileInput}
-    >
-      <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-      <p className="text-muted-foreground mb-4">اسحب الصور هنا أو انقر للتحديد</p>
-      <Button type="button" variant="outline" onClick={triggerFileInput}>
-        اختيار الصور
-      </Button>
-
-      {/* Preview selected images OR existing */}
-      <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
-        {/* Show new images first */}
-        {images.map((file, idx) => (
-          <div key={`new-${idx}`} className="relative group">
-            <img
-              src={URL.createObjectURL(file)}
-              alt={file.name}
-              className="w-full h-24 object-cover rounded-lg"
-            />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                removeFile(idx);
-              }}
-              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <X className="h-3 w-3" />
-            </button>
-            <div className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-1 rounded">
-              جديد
-            </div>
-          </div>
-        ))}
-        
-        {/* Show existing images */}
-        {existingImages.map((url, idx) => (
-          <div key={`existing-${idx}`} className="relative group">
-            <img
-              src={url}
-              alt={`existing-${idx}`}
-              className="w-full h-24 object-cover rounded-lg"
-            />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                removeExistingImage(idx);
-              }}
-              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <X className="h-3 w-3" />
-            </button>
-            <div className="absolute bottom-1 left-1 bg-gray-500 text-white text-xs px-1 rounded">
-              موجود
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Show message when no images */}
-      {images.length === 0 && existingImages.length === 0 && (
-        <div className="mt-4 text-sm text-muted-foreground">
-          لم يتم إضافة أي صور بعد
-        </div>
-      )}
-
-      <input
-        type="file"
-        id="product-image-input"
-        className="hidden"
-        accept="image/*"
-        multiple
-        onChange={handleImageChange}
-        ref={inputRef}
-      />
-    </div>
-  </CardContent>
-</Card>
           </div>
 
           {/* Sidebar */}
@@ -716,6 +789,25 @@ const removeExistingImage = (index: number) => {
                   <div className="text-lg font-bold text-brand-yellow">
                     {formData.price ? `${formData.price} ر.س` : "السعر"}
                   </div>
+                  
+                  {/* Show quantity options in preview */}
+                  {quantities.some(q => q.quantity && q.price) && (
+                    <div className="mt-3">
+                      <h4 className="text-sm font-medium mb-2">خيارات الكمية:</h4>
+                      <div className="space-y-1">
+                        {quantities
+                          .filter(q => q.quantity && q.price)
+                          .map((q, index) => (
+                            <div key={index} className="flex justify-between text-xs">
+                              <span>{q.quantity} نسخة</span>
+                              <span className="font-medium">{q.total.toFixed(2)} ر.س</span>
+                            </div>
+                          ))
+                        }
+                      </div>
+                    </div>
+                  )}
+                  
                   {existingImages.length > 1 && (
                     <div className="text-xs text-muted-foreground">
                       + {existingImages.length - 1} صورة إضافية

@@ -1,29 +1,27 @@
+// app/api/products/route.ts
 import { NextResponse } from "next/server"
 import { connectDB } from "@/lib/db"
 import Product from "@/models/Product"
-import { writeFile } from "fs/promises"
-import path from "path"
-import { v4 as uuidv4 } from 'uuid';
-import { mkdir } from "fs/promises"
+import { put } from '@vercel/blob';
 
-export async function GET() {
-  try {
-    await connectDB()
-    const products = await Product.find({}).sort({ createdAt: -1 })
-    return NextResponse.json(products, { status: 200 })
-  } catch (error: any) {
-    console.error("❌ GET /api/products error:", error.message)
-    return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 })
-  }
+// Fallback for development without blob
+async function uploadToBlobFallback(file: File): Promise<string> {
+  console.log("📝 Using fallback storage for file:", file.name);
+  
+  // Convert file to base64 for simple storage
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const base64 = buffer.toString('base64');
+  
+  return `data:${file.type};base64,${base64}`;
 }
 
 export async function POST(req: Request) {
   try {
     await connectDB();
-
     const formData = await req.formData();
 
-    // Extract all form data
+    // Extract form data
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
     const price = formData.get("price") as string;
@@ -39,23 +37,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // Parse numeric fields
-    const priceValue = parseFloat(price);
-    if (isNaN(priceValue) || priceValue < 0) {
-      return NextResponse.json(
-        { success: false, error: "السعر يجب أن يكون رقم صحيح" }, 
-        { status: 400 }
-      );
-    }
-
-    // Parse options with better error handling
+    // Parse options
     const parseOptions = (optionsString: string | null, optionName: string) => {
       try {
         if (!optionsString) return [];
-        
         const options = JSON.parse(optionsString);
         if (!Array.isArray(options)) return [];
-        
         return options
           .map((opt: any) => {
             if (typeof opt === 'string') {
@@ -82,12 +69,15 @@ export async function POST(req: Request) {
     try {
       const quantityData = formData.get("quantityOptions") as string;
       if (quantityData) {
-        quantityOptions = JSON.parse(quantityData)
-          .filter((opt: any) => opt && opt.quantity && opt.price)
-          .map((opt: any) => ({
-            quantity: parseInt(opt.quantity),
-            price: parseFloat(opt.price)
-          }));
+        const parsedData = JSON.parse(quantityData);
+        if (Array.isArray(parsedData)) {
+          quantityOptions = parsedData
+            .filter((opt: any) => opt && opt.quantity !== undefined && opt.price !== undefined)
+            .map((opt: any) => ({
+              quantity: parseInt(opt.quantity) || 0,
+              price: parseFloat(opt.price) || 0
+            }));
+        }
       }
     } catch (error) {
       console.error("Error parsing quantity options:", error);
@@ -99,52 +89,42 @@ export async function POST(req: Request) {
     const images: string[] = [];
 
     if (imageFiles.length > 0 && imageFiles[0].size > 0) {
-      // Ensure upload directory exists
-      const uploadDir = path.join(process.cwd(), "public/uploads");
-      try {
-        await mkdir(uploadDir, { recursive: true });
-        console.log("Upload directory ready:", uploadDir);
-      } catch (err) {
-        console.error("Error creating upload directory:", err);
-        return NextResponse.json(
-          { success: false, error: "فشل في إنشاء مجلد التحميل" },
-          { status: 500 }
-        );
-      }
-
-      // Process each image
+      console.log(`📤 Processing ${imageFiles.length} images...`);
+      
       for (const file of imageFiles) {
         if (file.size === 0) {
           console.log("Skipping empty file");
           continue;
         }
-        
+
         try {
-          const bytes = await file.arrayBuffer();
-          const buffer = Buffer.from(bytes);
+          let imageUrl: string;
           
-          // Create unique filename
-          const fileExtension = file.name.split('.').pop() || 'jpg';
-          const fileName = `${uuidv4()}.${fileExtension}`;
-          const filePath = path.join(uploadDir, fileName);
+          // Try Vercel Blob first
+          if (process.env.BLOB_READ_WRITE_TOKEN) {
+            console.log(`🔄 Uploading ${file.name} to Vercel Blob...`);
+            const blob = await put(`products/${Date.now()}-${file.name}`, file, {
+              access: 'public',
+            });
+            imageUrl = blob.url;
+            console.log("✅ Uploaded to Vercel Blob:", imageUrl);
+          } else {
+            // Fallback for development
+            console.log(`🔄 Using fallback storage for ${file.name}`);
+            imageUrl = await uploadToBlobFallback(file);
+            console.log("⚠️ Using fallback storage");
+          }
           
-          await writeFile(filePath, buffer);
-          
-          // Use the correct path that will be accessible from the browser
-          const imageUrl = `/uploads/${fileName}`;
           images.push(imageUrl);
           
-          console.log("Image saved successfully:", imageUrl);
-        } catch (err) {
-          console.error("Error saving image:", err);
-          return NextResponse.json(
-            { success: false, error: "فشل في حفظ الصور" },
-            { status: 500 }
-          );
+        } catch (err: any) {
+          console.error("❌ Upload error:", err);
+          // Continue with other images even if one fails
+          images.push("/placeholder.svg");
         }
       }
     } else {
-      // If no images uploaded, use placeholder
+      console.log("No images provided, using placeholder");
       images.push("/placeholder.svg");
     }
 
@@ -152,82 +132,154 @@ export async function POST(req: Request) {
     const productData = {
       title: title.trim(),
       description: description.trim(),
-      price: priceValue,
+      price: parseFloat(price),
       category: category.trim(),
       featured: featured === "true",
       status: status,
-      image: images, // Use 'image' field to match your schema
+      image: images,
       sizeOptions,
       sideOptions,
       materialOptions,
-      quantityOptions
+      quantityOptions,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
-    console.log("Creating product with data:", JSON.stringify(productData, null, 2));
+    console.log("📦 Creating product with data:", {
+      title: productData.title,
+      category: productData.category,
+      price: productData.price,
+      imagesCount: productData.image.length,
+      featured: productData.featured,
+      status: productData.status,
+      sizeOptions: productData.sizeOptions,
+      sideOptions: productData.sideOptions,
+      materialOptions: productData.materialOptions,
+      quantityOptions: productData.quantityOptions
+    });
 
     // Create and save product
     const product = new Product(productData);
-    
-    // Validate the product
-    const validationError = product.validateSync();
-    if (validationError) {
-      console.error("Validation error details:", validationError);
-      const errorMessages = Object.values(validationError.errors).map((err: any) => err.message);
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: "فشل في التحقق من البيانات",
-          details: errorMessages 
-        }, 
-        { status: 400 }
-      );
-    }
-
     const savedProduct = await product.save();
-    console.log("Product saved successfully:", savedProduct._id);
+
+    console.log("✅ Product created successfully:", savedProduct._id);
 
     return NextResponse.json({ 
       success: true, 
-      product: savedProduct,
-      message: "تم إنشاء المنتج بنجاح" 
+      product: {
+        id: savedProduct._id,
+        title: savedProduct.title,
+        description: savedProduct.description,
+        price: savedProduct.price,
+        category: savedProduct.category,
+        featured: savedProduct.featured,
+        status: savedProduct.status,
+        image: savedProduct.image,
+        sizeOptions: savedProduct.sizeOptions,
+        sideOptions: savedProduct.sideOptions,
+        materialOptions: savedProduct.materialOptions,
+        quantityOptions: savedProduct.quantityOptions
+      },
+      message: "تم إنشاء المنتج بنجاح",
+      storage: process.env.BLOB_READ_WRITE_TOKEN ? "vercel-blob" : "fallback"
     }, { status: 201 });
 
   } catch (err: any) {
     console.error("❌ Error in POST /api/products:", err);
     
-    // Handle different types of errors
+    // MongoDB validation errors
     if (err.name === 'ValidationError') {
       const errorDetails = Object.values(err.errors).map((e: any) => ({
         field: e.path,
         message: e.message
       }));
-      
       return NextResponse.json(
-        { 
-          success: false, 
-          error: "فشل في التحقق من البيانات",
-          details: errorDetails
-        }, 
+        { success: false, error: "فشل في التحقق من البيانات", details: errorDetails }, 
         { status: 400 }
       );
     }
     
+    // MongoDB duplicate key errors
     if (err.code === 11000) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: "منتج بنفس الاسم موجود مسبقاً" 
-        }, 
-        { status: 409 }
+        { success: false, error: "منتج بنفس الاسم موجود مسبقاً" }, 
+        { status: 400 }
       );
     }
     
+    // General server error
     return NextResponse.json(
-      { 
-        success: false, 
-        error: "فشل في حفظ المنتج",
-        message: err.message 
-      }, 
+      { success: false, error: "فشل في حفظ المنتج", message: err.message }, 
+      { status: 500 }
+    );
+  }
+}
+
+// GET all products
+export async function GET(req: Request) {
+  try {
+    await connectDB();
+
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const category = searchParams.get('category');
+    const featured = searchParams.get('featured');
+    const status = searchParams.get('status');
+    const search = searchParams.get('search');
+
+    const skip = (page - 1) * limit;
+
+    // Build filter object
+    const filter: any = {};
+    
+    if (category && category !== 'all') {
+      filter.category = category;
+    }
+    
+    if (featured) {
+      filter.featured = featured === 'true';
+    }
+    
+    if (status) {
+      filter.status = status;
+    }
+    
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Get products with pagination
+    const products = await Product.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('-__v');
+
+    // Get total count for pagination
+    const total = await Product.countDocuments(filter);
+    const totalPages = Math.ceil(total / limit);
+
+    return NextResponse.json({
+      success: true,
+      products,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    });
+
+  } catch (err: any) {
+    console.error("❌ Error in GET /api/products:", err);
+    return NextResponse.json(
+      { success: false, error: "فشل في جلب المنتجات", message: err.message }, 
       { status: 500 }
     );
   }

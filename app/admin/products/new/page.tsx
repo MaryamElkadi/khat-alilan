@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useState, useRef, useEffect } from "react";
-import { Save, ArrowRight, Upload, X } from "lucide-react";
+import { Save, ArrowRight, Upload, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,13 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useRouter } from "next/navigation";
 import { useProducts } from "@/app/admin/context/products";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+
 const categories = [
   "تصميم جرافيك",
   "إعلانات وسائل التواصل",
@@ -30,75 +24,12 @@ const categories = [
   "هدايا اعلانية"
 ];
 
-
-// ✅ Make ProductOptions a named component, not default
-function ProductOptions() {
-  const sizeOptions = ["A4", "A3", "A5"];
-  const sideOptions = ["وجه واحد", "وجهين"];
-  const materialOptions = ["ورق عادي", "ورق لامع", "بلاستيك"];
-  const quantityOptions = ["100", "200", "500", "1000"];
-
-  return (
-    <div className="flex flex-col gap-4">
-      {/* ✅ Size Select */}
-      <Select>
-        <SelectTrigger>
-          <SelectValue placeholder="اختر المقاس" />
-        </SelectTrigger>
-        <SelectContent>
-        {sizeOptions.map((size) => (
-  <SelectItem key={size} value={size}>
-    {size}
-  </SelectItem>
-))}
-
-        </SelectContent>
-      </Select>
-
-      {/* ✅ Side Select */}
-      <Select>
-        <SelectTrigger>
-          <SelectValue placeholder="اختر الوجه" />
-        </SelectTrigger>
-        <SelectContent>
-          {sideOptions.map((side) => (
-  <SelectItem key={side} value={side}>
-    {side}
-  </SelectItem>
-))}
-        </SelectContent>
-      </Select>
-
-      {/* ✅ Material Select */}
-      <Select>
-        <SelectTrigger>
-          <SelectValue placeholder="اختر المادة" />
-        </SelectTrigger>
-        <SelectContent>
-         {materialOptions.map((material) => (
-  <SelectItem key={material} value={material}>
-    {material}
-  </SelectItem>
-))}
-        </SelectContent>
-      </Select>
-
-      {/* ✅ Quantity Select */}
-      <Select>
-        <SelectTrigger>
-          <SelectValue placeholder="اختر الكمية" />
-        </SelectTrigger>
-        <SelectContent>
-          {quantityOptions.map((option, i) => (
-            <SelectItem key={i} value={option}>
-              {option}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
+// Fix the quantity state initialization
+type QuantityRow = {
+  quantity: string;
+  price: string;
+  total: number;
+};
 
 export default function NewProduct() {
   const router = useRouter();
@@ -106,47 +37,33 @@ export default function NewProduct() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
-// ✨ State جديدة للمخصص
-const [customSizes, setCustomSizes] = useState<string[]>([""]);
-const [customSides, setCustomSides] = useState<string[]>([""]);
-const [customMaterials, setCustomMaterials] = useState<string[]>([""]);
 
-// Update state for options with prices
-const [sizeOptions, setSizeOptions] = useState<{name: string, priceAddition: string}[]>([
-  { name: "A4", priceAddition: "0" },
-  { name: "A3", priceAddition: "0" },
-  { name: "A5", priceAddition: "0" },
-]);
+  // Update state for options with prices
+  const [sizeOptions, setSizeOptions] = useState<{name: string, priceAddition: string}[]>([
+    { name: "A4", priceAddition: "0" },
+    { name: "A3", priceAddition: "0" },
+    { name: "A5", priceAddition: "0" },
+  ]);
 
-const [sideOptions, setSideOptions] = useState<{name: string, priceAddition: string}[]>([
-  { name: "وجه واحد", priceAddition: "0" },
-  { name: "وجهين", priceAddition: "0" },
-]);
+  const [sideOptions, setSideOptions] = useState<{name: string, priceAddition: string}[]>([
+    { name: "وجه واحد", priceAddition: "0" },
+    { name: "وجهين", priceAddition: "0" },
+  ]);
 
-const [materialOptions, setMaterialOptions] = useState<{name: string, priceAddition: string}[]>([
-  { name: "ورق عادي", priceAddition: "0" },
-  { name: "ورق لامع", priceAddition: "0" },
-  { name: "بلاستيك", priceAddition: "0" },
-]);
+  const [materialOptions, setMaterialOptions] = useState<{name: string, priceAddition: string}[]>([
+    { name: "ورق عادي", priceAddition: "0" },
+    { name: "ورق لامع", priceAddition: "0" },
+    { name: "بلاستيك", priceAddition: "0" },
+  ]);
 
-
-const [formData, setFormData] = useState({
-  title: "",
-  description: "",
-  price: "",
-  category: "",
-  featured: false,
-  status: "مسودة",
-  size: "",
-  sizeCustom: "",
-  side: "",
-  sideCustom: "",
-  material: "",
-  materialCustom: "",
-});
-
-
-
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    price: "",
+    category: "",
+    featured: false,
+    status: "مسودة",
+  });
 
   // State for tax and total price calculation
   const [calculatedPrice, setCalculatedPrice] = useState({
@@ -154,96 +71,62 @@ const [formData, setFormData] = useState({
     tax: 0,
     total: 0,
   });
-type QuantityRow = {
-  quantity: string;
-  price: string; // أضف السعر
-  total: number;
-};
 
-const [quantities, setQuantities] = useState<QuantityRow[]>([
-  { quantity: "", price: "", total: 0 },
-]);
+  // Quantity options state
+  const [quantities, setQuantities] = useState<QuantityRow[]>([
+    { quantity: "", price: "", total: 0 },
+  ]);
 
   // ✅ تحديث useEffect لحساب السعر مع الإضافات
-useEffect(() => {
-  const basePrice = parseFloat(formData.price) || 0;
+  useEffect(() => {
+    const basePrice = parseFloat(formData.price) || 0;
 
-  // نحدد الاختيارات الحالية من state
-  const selectedSize = sizeOptions.find(opt => opt.name === formData.size);
-  const selectedSide = sideOptions.find(opt => opt.name === formData.side);
-  const selectedMaterial = materialOptions.find(opt => opt.name === formData.material);
+    // نحدد الاختيارات الحالية من state
+    const selectedSize = sizeOptions.find(opt => opt.name === formData.size);
+    const selectedSide = sideOptions.find(opt => opt.name === formData.side);
+    const selectedMaterial = materialOptions.find(opt => opt.name === formData.material);
 
-  // نحسب الإضافات
-  const sizeAddition = selectedSize ? parseFloat(selectedSize.priceAddition) || 0 : 0;
-  const sideAddition = selectedSide ? parseFloat(selectedSide.priceAddition) || 0 : 0;
-  const materialAddition = selectedMaterial ? parseFloat(selectedMaterial.priceAddition) || 0 : 0;
+    // نحسب الإضافات
+    const sizeAddition = selectedSize ? parseFloat(selectedSize.priceAddition) || 0 : 0;
+    const sideAddition = selectedSide ? parseFloat(selectedSide.priceAddition) || 0 : 0;
+    const materialAddition = selectedMaterial ? parseFloat(selectedMaterial.priceAddition) || 0 : 0;
 
-  // المجموع قبل الضريبة
-  const subtotal = basePrice + sizeAddition + sideAddition + materialAddition;
+    // المجموع قبل الضريبة
+    const subtotal = basePrice + sizeAddition + sideAddition + materialAddition;
 
-  // الضريبة
-  const taxAmount = subtotal * 0.15;
-  const totalAmount = subtotal + taxAmount;
+    // الضريبة
+    const taxAmount = subtotal * 0.15;
+    const totalAmount = subtotal + taxAmount;
 
-  setCalculatedPrice({
-    subtotal,
-    tax: taxAmount,
-    total: totalAmount,
-  });
-}, [formData.price, formData.size, formData.side, formData.material, sizeOptions, sideOptions, materialOptions]);
+    setCalculatedPrice({
+      subtotal,
+      tax: taxAmount,
+      total: totalAmount,
+    });
+  }, [formData.price, formData.size, formData.side, formData.material, sizeOptions, sideOptions, materialOptions]);
 
-const handleQuantityChange = (index: number, field: "quantity" | "price", value: string) => {
-  const newQuantities = [...quantities];
-  newQuantities[index][field] = value;
+  const handleQuantityChange = (index: number, field: "quantity" | "price", value: string) => {
+    const newQuantities = [...quantities];
+    newQuantities[index][field] = value;
 
-  const qty = parseInt(newQuantities[index].quantity) || 0;
-  const price = parseFloat(newQuantities[index].price) || 0;
+    const qty = parseInt(newQuantities[index].quantity) || 0;
+    const price = parseFloat(newQuantities[index].price) || 0;
 
-  newQuantities[index].total = calculateTotal(price, qty);
-  setQuantities(newQuantities);
-};
-const handleCustomChange = (
-  type: "size" | "side" | "material",
-  index: number,
-  value: string
-) => {
-  if (type === "size") {
-    const updated = [...customSizes];
-    updated[index] = value;
-    setCustomSizes(updated);
-  } else if (type === "side") {
-    const updated = [...customSides];
-    updated[index] = value;
-    setCustomSides(updated);
-  } else if (type === "material") {
-    const updated = [...customMaterials];
-    updated[index] = value;
-    setCustomMaterials(updated);
-  }
-};
+    newQuantities[index].total = calculateTotal(price, qty);
+    setQuantities(newQuantities);
+  };
 
-const addCustomField = (type: "size" | "side" | "material") => {
-  if (type === "size") setCustomSizes([...customSizes, ""]);
-  if (type === "side") setCustomSides([...customSides, ""]);
-  if (type === "material") setCustomMaterials([...customMaterials, ""]);
-};
+  // ✨ إضافة صف كمية جديد
+  const addQuantityRow = () => {
+    setQuantities([...quantities, { quantity: "", price: "", total: 0 }]);
+  };
 
-// دالة لحذف حقل
-const removeCustomField = (type: "size" | "side" | "material", index: number) => {
-  if (type === "size") setCustomSizes(customSizes.filter((_, i) => i !== index));
-  if (type === "side") setCustomSides(customSides.filter((_, i) => i !== index));
-  if (type === "material") setCustomMaterials(customMaterials.filter((_, i) => i !== index));
-};
-
-// ✨ إضافة صف كمية جديد
-const addQuantityRow = () => {
-  setQuantities([...quantities, { quantity: "", total: 0 }]);
-};
-
-// ✨ حذف صف كمية
-const removeQuantityRow = (index: number) => {
-  setQuantities(quantities.filter((_, i) => i !== index));
-};
+  // ✨ حذف صف كمية
+  const removeQuantityRow = (index: number) => {
+    if (quantities.length > 1) {
+      setQuantities(quantities.filter((_, i) => i !== index));
+    }
+  };
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -268,139 +151,148 @@ const removeQuantityRow = (index: number) => {
     e.stopPropagation();
     handleFiles(e.dataTransfer.files);
   };
+
   const handleOptionChange = (
-  type: "size" | "side" | "material", 
-  index: number, 
-  field: "name" | "priceAddition", 
-  value: string
-) => {
-  if (type === "size") {
-    const newOptions = [...sizeOptions];
-    newOptions[index][field] = value;
-    setSizeOptions(newOptions);
-  } else if (type === "side") {
-    const newOptions = [...sideOptions];
-    newOptions[index][field] = value;
-    setSideOptions(newOptions);
-  } else if (type === "material") {
-    const newOptions = [...materialOptions];
-    newOptions[index][field] = value;
-    setMaterialOptions(newOptions);
-  }
-};
+    type: "size" | "side" | "material", 
+    index: number, 
+    field: "name" | "priceAddition", 
+    value: string
+  ) => {
+    if (type === "size") {
+      const newOptions = [...sizeOptions];
+      newOptions[index][field] = value;
+      setSizeOptions(newOptions);
+    } else if (type === "side") {
+      const newOptions = [...sideOptions];
+      newOptions[index][field] = value;
+      setSideOptions(newOptions);
+    } else if (type === "material") {
+      const newOptions = [...materialOptions];
+      newOptions[index][field] = value;
+      setMaterialOptions(newOptions);
+    }
+  };
 
-// Update the option removal
-const removeOption = (type: "size" | "side" | "material", index: number) => {
-  if (type === "size") {
-    setSizeOptions(sizeOptions.filter((_, i) => i !== index));
-  } else if (type === "side") {
-    setSideOptions(sideOptions.filter((_, i) => i !== index));
-  } else if (type === "material") {
-    setMaterialOptions(materialOptions.filter((_, i) => i !== index));
-  }
-};
+  // Update the option removal
+  const removeOption = (type: "size" | "side" | "material", index: number) => {
+    if (type === "size") {
+      setSizeOptions(sizeOptions.filter((_, i) => i !== index));
+    } else if (type === "side") {
+      setSideOptions(sideOptions.filter((_, i) => i !== index));
+    } else if (type === "material") {
+      setMaterialOptions(materialOptions.filter((_, i) => i !== index));
+    }
+  };
 
-// Update the option addition
-const addOption = (type: "size" | "side" | "material") => {
-  const newOption = { name: "", priceAddition: "0" };
-  if (type === "size") setSizeOptions([...sizeOptions, newOption]);
-  if (type === "side") setSideOptions([...sideOptions, newOption]);
-  if (type === "material") setMaterialOptions([...materialOptions, newOption]);
-};
+  // Update the option addition
+  const addOption = (type: "size" | "side" | "material") => {
+    const newOption = { name: "", priceAddition: "0" };
+    if (type === "size") setSizeOptions([...sizeOptions, newOption]);
+    if (type === "side") setSideOptions([...sideOptions, newOption]);
+    if (type === "material") setMaterialOptions([...materialOptions, newOption]);
+  };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setUploading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUploading(true);
 
-  // Validate required fields
-  if (!formData.title || !formData.description || !formData.price || !formData.category) {
-    alert("يرجى ملء جميع الحقول المطلوبة");
-    setUploading(false);
-    return;
-  }
+    // Validate required fields
+    if (!formData.title || !formData.description || !formData.price || !formData.category) {
+      alert("يرجى ملء جميع الحقول المطلوبة");
+      setUploading(false);
+      return;
+    }
 
-  // Validate images
-  if (files.length === 0) {
-    alert("يرجى إضافة صورة واحدة على الأقل للمنتج");
-    setUploading(false);
-    return;
-  }
+    // Validate images
+    if (files.length === 0) {
+      alert("يرجى إضافة صورة واحدة على الأقل للمنتج");
+      setUploading(false);
+      return;
+    }
 
-  const productFormData = new FormData();
-  productFormData.append("title", formData.title);
-  productFormData.append("price", formData.price);
-  productFormData.append("description", formData.description); 
-  productFormData.append("category", formData.category);
-  productFormData.append("featured", String(formData.featured));
-  productFormData.append("status", formData.status);
+    // Validate quantity options
+    const validQuantityOptions = quantities.filter((q) => q.quantity && q.price && q.quantity.trim() !== "" && q.price.trim() !== "");
+    if (validQuantityOptions.length === 0) {
+      alert("يرجى إضافة خيار كمية واحد على الأقل");
+      setUploading(false);
+      return;
+    }
 
-  // Prepare options with price additions
-  const preparedSizeOptions = sizeOptions
-    .filter(opt => opt.name.trim() !== "")
-    .map(opt => ({
-      name: opt.name,
-      priceAddition: parseFloat(opt.priceAddition) || 0
-    }));
+    const productFormData = new FormData();
+    productFormData.append("title", formData.title);
+    productFormData.append("price", formData.price);
+    productFormData.append("description", formData.description); 
+    productFormData.append("category", formData.category);
+    productFormData.append("featured", String(formData.featured));
+    productFormData.append("status", formData.status);
 
-  const preparedSideOptions = sideOptions
-    .filter(opt => opt.name.trim() !== "")
-    .map(opt => ({
-      name: opt.name,
-      priceAddition: parseFloat(opt.priceAddition) || 0
-    }));
+    // Prepare options with price additions
+    const preparedSizeOptions = sizeOptions
+      .filter(opt => opt.name.trim() !== "")
+      .map(opt => ({
+        name: opt.name,
+        priceAddition: parseFloat(opt.priceAddition) || 0
+      }));
 
-  const preparedMaterialOptions = materialOptions
-    .filter(opt => opt.name.trim() !== "")
-    .map(opt => ({
-      name: opt.name,
-      priceAddition: parseFloat(opt.priceAddition) || 0
-    }));
+    const preparedSideOptions = sideOptions
+      .filter(opt => opt.name.trim() !== "")
+      .map(opt => ({
+        name: opt.name,
+        priceAddition: parseFloat(opt.priceAddition) || 0
+      }));
 
-  productFormData.append("sizeOptions", JSON.stringify(preparedSizeOptions));
-  productFormData.append("sideOptions", JSON.stringify(preparedSideOptions));
-  productFormData.append("materialOptions", JSON.stringify(preparedMaterialOptions));
+    const preparedMaterialOptions = materialOptions
+      .filter(opt => opt.name.trim() !== "")
+      .map(opt => ({
+        name: opt.name,
+        priceAddition: parseFloat(opt.priceAddition) || 0
+      }));
 
-  // Prepare quantity options
-  const parsedQuantityOptions = quantities
-    .filter((q) => q.quantity && q.price)
-    .map((q) => ({
+    productFormData.append("sizeOptions", JSON.stringify(preparedSizeOptions));
+    productFormData.append("sideOptions", JSON.stringify(preparedSideOptions));
+    productFormData.append("materialOptions", JSON.stringify(preparedMaterialOptions));
+
+    // Prepare quantity options
+    const parsedQuantityOptions = validQuantityOptions.map((q) => ({
       quantity: parseInt(q.quantity),
       price: parseFloat(q.price),
-      total: q.total,
     }));
 
-  productFormData.append("quantityOptions", JSON.stringify(parsedQuantityOptions));
+    console.log("Quantity options being sent:", parsedQuantityOptions);
 
-  // Append all image files
-  files.forEach((file) => {
-    productFormData.append("images", file);
-  });
+    productFormData.append("quantityOptions", JSON.stringify(parsedQuantityOptions));
 
-  try {
-    const res = await fetch("/api/products", {
-      method: "POST",
-      body: productFormData,
+    // Append all image files
+    files.forEach((file) => {
+      productFormData.append("images", file);
     });
 
-    const result = await res.json();
+    try {
+      console.log("🔄 Sending request to /api/products...");
+      const res = await fetch("/api/products", {
+        method: "POST",
+        body: productFormData,
+      });
 
-    if (res.ok) {
-      alert("تم حفظ المنتج بنجاح!");
-      router.push("/admin/products");
-    } else {
-      console.error("Server error:", result);
-      alert(`فشل في الحفظ: ${result.error || "حدث خطأ غير معروف"}`);
+      const result = await res.json();
+
+      if (res.ok) {
+        alert("تم حفظ المنتج بنجاح!");
+        router.push("/admin/products");
+      } else {
+        console.error("Server error:", result);
+        alert(`فشل في الحفظ: ${result.error || "حدث خطأ غير معروف"}`);
+      }
+    } catch (error) {
+      console.error("Network error:", error);
+      alert("حدث خطأ في الشبكة أثناء حفظ المنتج");
+    } finally {
+      setUploading(false);
     }
-  } catch (error) {
-    console.error("Network error:", error);
-    alert("حدث خطأ في الشبكة أثناء حفظ المنتج");
-  } finally {
-    setUploading(false);
-  }
-};
+  };
 
-const calculateTotal = (price: number, quantity: number) => {
-  const subtotal = price * quantity;
+ const calculateTotal = (price: number, quantity: number) => {
+  const subtotal = price; // don't multiply by quantity
   const tax = subtotal * 0.15;
   return subtotal + tax;
 };
@@ -451,7 +343,7 @@ const calculateTotal = (price: number, quantity: number) => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="price">السعر (ر.س) *</Label>
+                    <Label htmlFor="price">السعر الأساسي (ر.س) *</Label>
                     <Input
                       id="price"
                       type="number"
@@ -483,7 +375,7 @@ const calculateTotal = (price: number, quantity: number) => {
                 {/* Tax and Total Price Display */}
                 {calculatedPrice.subtotal > 0 && (
                   <div className="bg-gray-100 p-4 rounded-lg text-black">
-                    <h4 className="font-semibold text-sm mb-2">حساب السعر</h4>
+                    <h4 className="font-semibold text-sm mb-2">حساب السعر الأساسي</h4>
                     <div className="flex justify-between text-sm">
                       <p>السعر الأساسي:</p>
                       <p className="font-medium">{calculatedPrice.subtotal.toFixed(2)} ر.س</p>
@@ -501,145 +393,217 @@ const calculateTotal = (price: number, quantity: number) => {
               </CardContent>
             </Card>
 
- <Card>
-  <CardHeader>
-    <CardTitle>خيارات المقاس مع الأسعار الإضافية</CardTitle>
-  </CardHeader>
-  <CardContent className="space-y-4">
-    <div>
-      <Label>المقاسات المتاحة والسعر الإضافي</Label>
-      <div className="mt-2 space-y-2">
-        {sizeOptions.map((opt, i) => (
-          <div key={i} className="flex gap-2 items-center">
-            <Input
-              value={opt.name}
-              placeholder={`اسم المقاس ${i + 1}`}
-              onChange={(e) => handleOptionChange("size", i, "name", e.target.value)}
-              className="flex-1"
-            />
-            <Input
-              type="number"
-              value={opt.priceAddition}
-              placeholder="السعر الإضافي"
-              onChange={(e) => handleOptionChange("size", i, "priceAddition", e.target.value)}
-              className="w-32"
-            />
-            <span className="text-sm text-muted-foreground">ر.س</span>
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon"
-              onClick={() => removeOption("size", i)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => addOption("size")}
-        >
-          + إضافة مقاس آخر
-        </Button>
-      </div>
-    </div>
-  </CardContent>
-</Card>
+            {/* NEW: Quantity Options Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>خيارات الكمية والأسعار</CardTitle>
+                <p className="text-sm text-muted-foreground ">
+                  أضف خيارات كمية مختلفة مع أسعارها (مثال: 100 نسخة بسعر 1500 ريال، 500 نسخة بسعر 6000 ريال)
+                </p>
+              </CardHeader>
+              <CardContent >
+                <div className="space-y-4 ">
+                  {quantities.map((q, index) => (
+                    <div key={index} className="flex items-center gap-3 p-4 border rounded-lg bg-gray-800">
+                      <div className="flex-1">
+                        <Label htmlFor={`quantity-${index}`}>الكمية *</Label>
+                        <Input
+                          id={`quantity-${index}`}
+                          type="number"
+                          placeholder="مثال: 100"
+                          value={q.quantity}
+                          onChange={(e) => handleQuantityChange(index, "quantity", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label htmlFor={`price-${index}`}>السعر (ر.س) *</Label>
+                        <Input
+                          id={`price-${index}`}
+                          type="number"
+                          placeholder="مثال: 1500"
+                          value={q.price}
+                          onChange={(e) => handleQuantityChange(index, "price", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="w-32 text-center">
+                        <Label>الإجمالي شامل الضريبة</Label>
+                        <div className="font-bold text-lg text-brand-yellow mt-1">
+                          {q.total > 0 ? `${q.total.toFixed(2)} ر.س` : "--"}
+                        </div>
+                      </div>
+                      {quantities.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => removeQuantityRow(index)}
+                          className="mt-6"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full flex items-center justify-center gap-2"
+                    onClick={addQuantityRow}
+                  >
+                    <Plus className="h-4 w-4" />
+                    إضافة خيار كمية آخر
+                  </Button>
+                  
+                  <div className="text-sm text-muted-foreground bg-blue-50 p-3 rounded-lg">
+                    💡 <strong>ملاحظة:</strong> هذه الخيارات ستظهر للعميل ليختار الكمية المناسبة مع السعر المحدد لكل كمية.
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
+            {/* Size Options */}
+            <Card>
+              <CardHeader>
+                <CardTitle>خيارات المقاس مع الأسعار الإضافية</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>المقاسات المتاحة والسعر الإضافي</Label>
+                  <div className="mt-2 space-y-2">
+                    {sizeOptions.map((opt, i) => (
+                      <div key={i} className="flex gap-2 items-center">
+                        <Input
+                          value={opt.name}
+                          placeholder={`اسم المقاس ${i + 1}`}
+                          onChange={(e) => handleOptionChange("size", i, "name", e.target.value)}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="number"
+                          value={opt.priceAddition}
+                          placeholder="السعر الإضافي"
+                          onChange={(e) => handleOptionChange("size", i, "priceAddition", e.target.value)}
+                          className="w-32"
+                        />
+                        <span className="text-sm text-muted-foreground">ر.س</span>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => removeOption("size", i)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => addOption("size")}
+                    >
+                      + إضافة مقاس آخر
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-{/* الحجم */}
-<Card>
-  <CardHeader>
-    <CardTitle>خيارات الحجم مع الأسعار الإضافية</CardTitle>
-  </CardHeader>
-  <CardContent className="space-y-4">
-    <div>
-      <Label>الاحجام المتاحة والسعر الإضافي</Label>
-      <div className="mt-2 space-y-2">
-        {sideOptions.map((opt, i) => (
-          <div key={i} className="flex gap-2 items-center">
-            <Input
-              value={opt.name}
-              placeholder={`اسم الحجم ${i + 1}`}
-              onChange={(e) => handleOptionChange("side", i, "name", e.target.value)}
-              className="flex-1"
-            />
-            <Input
-              type="number"
-              value={opt.priceAddition}
-              placeholder="السعر الإضافي"
-              onChange={(e) => handleOptionChange("side", i, "priceAddition", e.target.value)}
-              className="w-32"
-            />
-            <span className="text-sm text-muted-foreground">ر.س</span>
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon"
-              onClick={() => removeOption("side", i)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => addOption("side")}
-        >
-          + إضافة حجم آخر
-        </Button>
-      </div>
-    </div>
-  </CardContent>
-</Card>
-{/* المادة */}
-<Card>
-  <CardHeader>
-    <CardTitle>خيارات المادة مع الأسعار الإضافية</CardTitle>
-  </CardHeader>
-  <CardContent className="space-y-4">
-    <div>
-      <Label>المواد المتاحة والسعر الإضافي</Label>
-      <div className="mt-2 space-y-2">
-        {materialOptions.map((opt, i) => (
-          <div key={i} className="flex gap-2 items-center">
-            <Input
-              value={opt.name}
-              placeholder={`اسم المادة ${i + 1}`}
-              onChange={(e) => handleOptionChange("material", i, "name", e.target.value)}
-              className="flex-1"
-            />
-            <Input
-              type="number"
-              value={opt.priceAddition}
-              placeholder="السعر الإضافي"
-              onChange={(e) => handleOptionChange("material", i, "priceAddition", e.target.value)}
-              className="w-32"
-            />
-            <span className="text-sm text-muted-foreground">ر.س</span>
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon"
-              onClick={() => removeOption("material", i)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => addOption("material")}
-        >
-          + إضافة مادة آخر
-        </Button>
-      </div>
-    </div>
-  </CardContent>
-</Card>
+            {/* Side Options */}
+            <Card>
+              <CardHeader>
+                <CardTitle>خيارات الوجه مع الأسعار الإضافية</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>الوجه المتاح والسعر الإضافي</Label>
+                  <div className="mt-2 space-y-2">
+                    {sideOptions.map((opt, i) => (
+                      <div key={i} className="flex gap-2 items-center">
+                        <Input
+                          value={opt.name}
+                          placeholder={`اسم الوجه ${i + 1}`}
+                          onChange={(e) => handleOptionChange("side", i, "name", e.target.value)}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="number"
+                          value={opt.priceAddition}
+                          placeholder="السعر الإضافي"
+                          onChange={(e) => handleOptionChange("side", i, "priceAddition", e.target.value)}
+                          className="w-32"
+                        />
+                        <span className="text-sm text-muted-foreground">ر.س</span>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => removeOption("side", i)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => addOption("side")}
+                    >
+                      + إضافة وجه آخر
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Material Options */}
+            <Card>
+              <CardHeader>
+                <CardTitle>خيارات المادة مع الأسعار الإضافية</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>المواد المتاحة والسعر الإضافي</Label>
+                  <div className="mt-2 space-y-2">
+                    {materialOptions.map((opt, i) => (
+                      <div key={i} className="flex gap-2 items-center">
+                        <Input
+                          value={opt.name}
+                          placeholder={`اسم المادة ${i + 1}`}
+                          onChange={(e) => handleOptionChange("material", i, "name", e.target.value)}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="number"
+                          value={opt.priceAddition}
+                          placeholder="السعر الإضافي"
+                          onChange={(e) => handleOptionChange("material", i, "priceAddition", e.target.value)}
+                          className="w-32"
+                        />
+                        <span className="text-sm text-muted-foreground">ر.س</span>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => removeOption("material", i)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => addOption("material")}
+                    >
+                      + إضافة مادة أخرى
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Image Upload */}
             <Card>
@@ -732,38 +696,58 @@ const calculateTotal = (price: number, quantity: number) => {
             </Card>
 
             {/* Quick Preview */}
-         <Card>
-  <CardHeader>
-    <CardTitle>معاينة سريعة</CardTitle>
-  </CardHeader>
-  <CardContent>
-    <div className="space-y-3">
-      <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-        {files[0] ? (
-          <img
-            src={URL.createObjectURL(files[0])}
-            alt="معاينة"
-            className="object-cover w-full h-full rounded-lg"
-          />
-        ) : (
-          <span className="text-muted-foreground text-sm">صورة المنتج</span>
-        )}
-      </div>
-      <h3 className="font-semibold">{formData.title || "اسم المنتج"}</h3>
-      <p className="text-sm text-muted-foreground line-clamp-2">
-        {formData.description || "وصف المنتج سيظهر هنا..."}
-      </p>
-      <div className="text-lg font-bold text-brand-yellow">
-        {formData.price ? `${formData.price} ر.س` : "السعر"}
-      </div>
-      {files.length > 1 && (
-        <div className="text-xs text-muted-foreground">
-          + {files.length - 1} صورة إضافية
-        </div>
-      )}
-    </div>
-  </CardContent>
-</Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>معاينة سريعة</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
+                    {files[0] ? (
+                      <img
+                        src={URL.createObjectURL(files[0])}
+                        alt="معاينة"
+                        className="object-cover w-full h-full rounded-lg"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground text-sm">صورة المنتج</span>
+                    )}
+                  </div>
+                  <h3 className="font-semibold">{formData.title || "اسم المنتج"}</h3>
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {formData.description || "وصف المنتج سيظهر هنا..."}
+                  </p>
+                  <div className="text-lg font-bold text-brand-yellow">
+                    {formData.price ? `${formData.price} ر.س` : "السعر"}
+                  </div>
+                  
+                  {/* Show quantity options in preview */}
+                  {quantities.some(q => q.quantity && q.price) && (
+                    <div className="mt-3 ">
+                      <h4 className="text-sm font-medium mb-2">خيارات الكمية:</h4>
+                      <div className="space-y-1">
+                        {quantities
+                          .filter(q => q.quantity && q.price)
+                          .map((q, index) => (
+                            <div key={index} className="flex justify-between text-xs">
+                              <span>{q.quantity} نسخة</span>
+                              <span className="font-medium">{q.total.toFixed(2)} ر.س</span>
+                            </div>
+                          ))
+                        }
+                      </div>
+                    </div>
+                  )}
+                  
+                  {files.length > 1 && (
+                    <div className="text-xs text-muted-foreground">
+                      + {files.length - 1} صورة إضافية
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Action Buttons */}
             <div className="space-y-3">
               <Button 

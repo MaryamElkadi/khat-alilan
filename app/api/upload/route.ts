@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { writeFile } from "fs/promises";
-import path from "path";
+import { put } from "@vercel/blob";
 
 export async function POST(req: Request) {
   try {
@@ -11,17 +10,45 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      return NextResponse.json({ error: "Only image files are allowed" }, { status: 400 });
+    }
 
-    const fileName = `${Date.now()}-${file.name}`;
-    const filePath = path.join(process.cwd(), "public/uploads", fileName);
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.size > maxSize) {
+      return NextResponse.json({ error: "File size too large. Maximum 10MB allowed" }, { status: 400 });
+    }
 
-    await writeFile(filePath, buffer);
+    // Upload to Vercel Blob
+    const blob = await put(`products/${Date.now()}-${file.name}`, file, {
+      access: 'public',
+    });
 
-    return NextResponse.json({ path: `/uploads/${fileName}` }); // ✅ Save real path
-  } catch (err) {
+    console.log("✅ Image uploaded to Vercel Blob:", blob.url);
+
+    return NextResponse.json({ 
+      success: true,
+      url: blob.url,
+      pathname: blob.pathname,
+      message: "File uploaded successfully"
+    });
+
+  } catch (err: any) {
     console.error("Upload error:", err);
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    
+    // Handle Vercel Blob specific errors
+    if (err.message?.includes('No token found')) {
+      return NextResponse.json(
+        { error: "Storage configuration error. Please check BLOB_READ_WRITE_TOKEN environment variable." },
+        { status: 500 }
+      );
+    }
+    
+    return NextResponse.json(
+      { error: "Upload failed", details: err.message },
+      { status: 500 }
+    );
   }
 }
