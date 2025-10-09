@@ -229,7 +229,7 @@ export default function EditProductPage() {
   };
 
   const calculateTotal = (price: number, quantity: number) => {
-    const subtotal = price * quantity;
+    const subtotal = price ;
     const tax = subtotal * 0.15;
     return subtotal + tax;
   };
@@ -455,7 +455,7 @@ export default function EditProductPage() {
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-4 ">
                   {quantities.map((q, index) => (
                     <div key={index} className="flex items-center gap-3 p-4 border rounded-lg bg-gray-50">
                       <div className="flex-1">
@@ -510,7 +510,7 @@ export default function EditProductPage() {
                     إضافة خيار كمية آخر
                   </Button>
                   
-                  <div className="text-sm text-muted-foreground bg-blue-50 p-3 rounded-lg">
+                  <div className="text-sm text-muted-foreground bg-blue-800 p-3 rounded-lg">
                     💡 <strong>ملاحظة:</strong> هذه الخيارات ستظهر للعميل ليختار الكمية المناسبة مع السعر المحدد لكل كمية.
                   </div>
                 </div>
