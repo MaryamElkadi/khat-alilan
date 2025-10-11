@@ -1,3 +1,4 @@
+import type React from "react"
 import type { Metadata } from "next"
 import { Noto_Sans_Arabic } from "next/font/google"
 import { Suspense } from "react"
@@ -9,9 +10,9 @@ import { FloatingActionButton } from "@/components/floating-action-button"
 import { ScrollToTop } from "@/components/scroll-to-top"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
-import { ToastProvider } from "@/components/ToastProvider"
+import { ToastProvider } from "@/components/ToastProvider" // ✅ استدعاء
+import "./globals.css"
 import { NextAuthProvider } from "@/lib/next-auth-provider"
-import "./globals.css" // ✅ Uncommented this - this might be the main issue!
 
 const notoSansArabic = Noto_Sans_Arabic({
   subsets: ["arabic"],
@@ -30,27 +31,18 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ar" dir="rtl" className="dark">
-      <body className={`${notoSansArabic.variable} antialiased`}>
+      <body className={`font-arabic ${notoSansArabic.variable} antialiased`}>
         <NextAuthProvider>
           <AdminAuthProvider>
             <AuthProvider>
               <CartProvider>
-                <ToastProvider>
-                  <Navbar />
-                  <main className="min-h-screen">
-                    <Suspense fallback={
-                      <div className="flex justify-center items-center min-h-screen">
-                        <div className="text-lg">جاري التحميل...</div>
-                      </div>
-                    }>
-                      {children}
-                    </Suspense>
-                  </main>
-                  <Footer />
-                  <FloatingActionButton />
-                  <ScrollToTop />
-                  <Toaster />
-                </ToastProvider>
+                <Navbar />
+                <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+                <Footer />
+                <Toaster />
+                <FloatingActionButton />
+                <ScrollToTop />
+                <ToastProvider />
               </CartProvider>
             </AuthProvider>
           </AdminAuthProvider>

@@ -1,13 +1,23 @@
-import { NextResponse } from "next/server"
-import clientPromise from "@/lib/db"
+import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/db";
+import mongoose from "mongoose";
+
+// Define schema (optional — or import from your models folder)
+const SaleSchema = new mongoose.Schema({
+  month: String,
+  category: String,
+  amount: Number,
+}, { collection: "sales" });
+
+const Sale = mongoose.models.Sale || mongoose.model("Sale", SaleSchema);
 
 export async function GET() {
   try {
-    const client = await clientPromise
-    const db = client.db("khat-alilan")
+    // Connect to MongoDB
+    await connectDB();
 
-    // مثال: جدول المبيعات
-    const sales = await db.collection("sales").aggregate([
+    // Aggregate sales by month
+    const sales = await Sale.aggregate([
       {
         $group: {
           _id: "$month",
@@ -15,24 +25,29 @@ export async function GET() {
         },
       },
       { $sort: { _id: 1 } }
-    ]).toArray()
+    ]);
 
-    // مثال: جدول التصنيفات
-    const categories = await db.collection("sales").aggregate([
+    // Aggregate sales by category
+    const categories = await Sale.aggregate([
       {
         $group: {
           _id: "$category",
           total: { $sum: "$amount" },
         },
       },
-    ]).toArray()
+    ]);
 
+    // Return response
     return NextResponse.json({
-      salesData: sales.map(s => ({ name: s._id, value: s.total })),
-      categoryData: categories.map(c => ({ name: c._id, value: c.total }))
-    })
+      salesData: sales.map((s) => ({ name: s._id, value: s.total })),
+      categoryData: categories.map((c) => ({ name: c._id, value: c.total })),
+    });
+
   } catch (error) {
-    console.error(error)
-    return NextResponse.json({ error: "Failed to fetch reports" }, { status: 500 })
+    console.error("Error generating reports:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch reports" },
+      { status: 500 }
+    );
   }
 }

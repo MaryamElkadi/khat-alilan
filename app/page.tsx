@@ -14,7 +14,7 @@ import { PageTransition } from "@/components/page-transition"
 import { useAdminAuth } from "@/lib/admin-auth"
 
 export default function HomePage() {
-  const { user, isAdmin, isLoading } = useAdminAuth()
+  const { user, isAdmin, isLoading } = useAdminAuth() // <-- Destructuring these values
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
 
@@ -40,6 +40,7 @@ export default function HomePage() {
       </div>
     )
   }
+
 
   return (
     <PageTransition>

@@ -1,62 +1,96 @@
-import type { Metadata } from "next"
-import { Noto_Sans_Arabic } from "next/font/google"
-import { Suspense } from "react"
-import { CartProvider } from "@/lib/CartProvider"
-import { AuthProvider } from "@/lib/auth-context"
-import { AdminAuthProvider } from "@/lib/admin-auth"
-import { Toaster } from "@/components/ui/toaster"
-import { FloatingActionButton } from "@/components/floating-action-button"
-import { ScrollToTop } from "@/components/scroll-to-top"
-import { Navbar } from "@/components/navbar"
-import { Footer } from "@/components/footer"
-import { ToastProvider } from "@/components/ToastProvider"
-import { NextAuthProvider } from "@/lib/next-auth-provider"
-import "@/styles/globals.css" // ✅ Fixed import path
+"use client"
 
-const notoSansArabic = Noto_Sans_Arabic({
-  subsets: ["arabic"],
-  variable: "--font-arabic",
-  display: "swap",
-})
+import type React from "react"
 
-export const metadata: Metadata = {
-  title: "خط الإعلان - شركة الإعلان والتسويق",
-  description: "شركة خط الإعلان للخدمات الإعلانية والتسويقية المتميزة",
-  generator: "v0.app",
-}
+import { motion } from "framer-motion"
+import { Home, Package, ShoppingCart, Users, Settings, LogOut, BarChart3, FileText } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useAdminAuth } from "@/lib/admin-auth"
+import { ProtectedRoute } from "@/components/protected-route"
+import { useRouter } from "next/navigation"
+import { ProductsProvider } from "@/app/admin/context/products"
 
-// Add this client component for hydration handling
-function ClientBody({ children }: { children: React.ReactNode }) {
-  return (
-    <body className={`${notoSansArabic.variable} antialiased`}>
-      <NextAuthProvider>
-        <AdminAuthProvider>
-          <AuthProvider>
-            <CartProvider>
-              <ToastProvider>
-                <Navbar />
-                <main className="min-h-screen">
-                  {children}
-                </main>
-                <Footer />
-                <FloatingActionButton />
-                <ScrollToTop />
-                <Toaster />
-              </ToastProvider>
-            </CartProvider>
-          </AuthProvider>
-        </AdminAuthProvider>
-      </NextAuthProvider>
-    </body>
-  )
-}
+const sidebarItems = [
+  { icon: Home, label: "الرئيسية", href: "/admin" },
+  { icon: Package, label: "المنتجات", href: "/admin/products" },
+  { icon: ShoppingCart, label: "الطلبات", href: "/admin/orders" },
+  { icon: Users, label: "العملاء", href: "/admin/customers" },
+  { icon: BarChart3, label: "التقارير", href: "/admin/reports" },
+  { icon: FileText, label: "الخدمات", href: "/admin/content" },
+  { icon: FileText, label: "أعمالنا", href: "/admin/portfolio" },
+   { icon: FileText, label: "التواصل", href: "/admin/contact" },
+  { icon: Settings, label: "الإعدادات", href: "/admin/settings" },
+]
 
-export default function RootLayout({
+export default function AdminLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: {
+  children: React.ReactNode
+}) {
+  const { user, logout } = useAdminAuth()
+  const router = useRouter()
+
+  const handleLogout = () => {
+    logout()
+    router.push("/")
+  }
+
   return (
-    <html lang="ar" dir="rtl">
-      <ClientBody>{children}</ClientBody>
-    </html>
+    <ProtectedRoute requireAdmin={true}>
+      <ProductsProvider>
+        <div className="min-h-screen bg-background flex">
+          {/* Sidebar */}
+          <motion.div
+            initial={{ x: -300 }}
+            animate={{ x: 0 }}
+            className="w-64 bg-card border-l border-border flex flex-col"
+          >
+            {/* Logo */}
+            <div className="p-6 border-b border-border">
+              <h2 className="text-xl font-bold text-brand-blue">خط الإعلان</h2>
+              <p className="text-sm text-muted-foreground">لوحة التحكم</p>
+            </div>
+
+            {/* Navigation */}
+            <nav className="flex-1 p-4">
+              <div className="space-y-2">
+                {sidebarItems.map((item, index) => (
+                  <motion.div
+                    key={item.href}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3 h-12"
+                      onClick={() => router.push(item.href)}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      {item.label}
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            </nav>
+
+            {/* User Info & Logout */}
+            <div className="p-4 border-t border-border">
+              <div className="mb-4">
+                <p className="font-medium">{user?.name}</p>
+                <p className="text-sm text-muted-foreground">{user?.email}</p>
+              </div>
+              <Button variant="outline" className="w-full gap-2 bg-transparent" onClick={handleLogout}>
+                <LogOut className="h-4 w-4" />
+                تسجيل الخروج
+              </Button>
+            </div>
+          </motion.div>
+
+          {/* Main Content */}
+          <div className="flex-1">{children}</div>
+        </div>
+      </ProductsProvider>
+    </ProtectedRoute>
   )
 }
