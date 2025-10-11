@@ -11,7 +11,7 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { ToastProvider } from "@/components/ToastProvider"
 import { NextAuthProvider } from "@/lib/next-auth-provider"
-import "./globals.css"
+import "@/styles/globals.css" // ✅ Fixed import path
 
 const notoSansArabic = Noto_Sans_Arabic({
   subsets: ["arabic"],
