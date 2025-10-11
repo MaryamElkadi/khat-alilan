@@ -65,14 +65,14 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b bg-card">
-        <div className="container mx-auto px-4 py-6 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4 sm:py-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-brand-blue">لوحة التحكم الإدارية</h1>
-            <p className="text-muted-foreground mt-1">مرحباً بك، {user.name}</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-brand-blue leading-tight">لوحة التحكم الإدارية</h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">مرحباً بك، {user.name}</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Badge className="bg-brand-yellow text-black">مدير</Badge>
-            <Button variant="outline" onClick={() => router.push("/")}>
+            <Button variant="outline" className="whitespace-nowrap" onClick={() => router.push("/") }>
               <Eye className="h-4 w-4 ml-2" />
               عرض الموقع
             </Button>
@@ -80,18 +80,18 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
           {statsCards.map((stat, index) => (
             <motion.div key={stat.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}>
               <Card className="hover:shadow-lg transition-shadow">
                 <CardHeader className="flex items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
+                  <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
                   <stat.icon className={`h-4 w-4 ${stat.color}`} />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
+                  <div className="text-xl sm:text-2xl font-bold">{stat.value}</div>
                   <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
                 </CardContent>
               </Card>
@@ -100,7 +100,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Recent Orders + Performance Chart */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Recent Orders */}
           <div className="lg:col-span-2">
             <Card>
@@ -120,11 +120,11 @@ export default function AdminDashboard() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.7 + index * 0.1 }}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                        className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                       >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium">{order.customer}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 min-w-0">
+                            <span className="font-medium truncate">{order.customer}</span>
                             <Badge
                               variant={
                                 order.status === "جديد" ? "default" : order.status === "قيد التنفيذ" ? "secondary" : "outline"
@@ -140,12 +140,12 @@ export default function AdminDashboard() {
                               {order.status}
                             </Badge>
                           </div>
-                          <div className="text-sm text-muted-foreground">{order.product}</div>
+                          <div className="text-sm text-muted-foreground truncate">{order.product}</div>
                           <div className="text-xs text-muted-foreground mt-1">{new Date(order.date).toLocaleDateString("ar-EG")}</div>
                         </div>
-                        <div className="text-left">
+                        <div className="w-full sm:w-auto sm:text-left flex items-center justify-between sm:block">
                           <div className="font-bold text-brand-yellow">{order.amount} ر.س</div>
-                          <Button size="sm" variant="ghost" className="mt-1">
+                          <Button size="sm" variant="ghost" className="mt-0 sm:mt-1">
                             عرض التفاصيل
                           </Button>
                         </div>
@@ -171,7 +171,7 @@ export default function AdminDashboard() {
                 <CardDescription>إحصائيات المبيعات للأشهر الماضية</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-64 flex items-center justify-center bg-muted/20 rounded-lg">
+                <div className="h-48 sm:h-64 flex items-center justify-center bg-muted/20 rounded-lg">
                   <div className="text-center">
                     <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
                     <p className="text-muted-foreground">سيتم إضافة الرسوم البيانية قريباً</p>
