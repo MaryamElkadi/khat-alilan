@@ -3,36 +3,169 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { BarChart3, Package, Users, ShoppingCart, TrendingUp, Eye } from "lucide-react";
+import { BarChart3, Package, Users, ShoppingCart, TrendingUp, Eye, DollarSign, Calendar, Zap, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAdminAuth } from "@/lib/admin-auth";
 
+// 💡 تعريف الـ Icons والألوان والعناوين لكل إحصائية محتملة
+const STAT_CARD_CONFIG = {
+  // المفتاح يجب أن يتطابق مع مفتاح البيانات القادم من الـ API (مثال: data.stats.sales)
+  sales: { title: "إجمالي المبيعات", icon: TrendingUp, color: "text-green-500" },
+  newOrders: { title: "الطلبات الجديدة", icon: ShoppingCart, color: "text-brand-blue" },
+  activeCustomers: { title: "العملاء النشطين", icon: Users, color: "text-brand-yellow" },
+  products: { title: "المنتجات", icon: Package, color: "text-purple-500" },
+  revenue: { title: "الإيرادات الكلية", icon: DollarSign, color: "text-blue-500" },
+  visits: { title: "زيارات الموقع", icon: Eye, color: "text-orange-500" },
+  pendingOrders: { title: "طلبات قيد الانتظار", icon: Calendar, color: "text-red-500" },
+  newUsers: { title: "مستخدمون جدد", icon: Zap, color: "text-cyan-500" },
+  messages: { title: "رسائل الدعم", icon: MessageSquare, color: "text-gray-500" },
+  // ... أضف المزيد من الإحصائيات هنا إذا كانت تأتي من الـ API
+};
+
+// 💡 دالة لحساب التغيير الديناميكي بناءً على البيانات السابقة والحالية
+const calculateChange = (currentValue, previousValue, key) => {
+  if (!previousValue || previousValue === 0) {
+    // إذا لم توجد بيانات سابقة، نرجع رسالة افتراضية
+    switch(key) {
+      case 'sales': return "+0% هذا الشهر";
+      case 'newOrders': return "+0 اليوم";
+      case 'activeCustomers': return "+0%";
+      case 'products': return "+0 هذا الأسبوع";
+      case 'revenue': return "لا توجد بيانات سابقة";
+      case 'visits': return "+0% هذا الشهر";
+      case 'pendingOrders': return "تحتاج للمراجعة";
+      case 'newUsers': return "+0% عن الأسبوع الماضي";
+      case 'messages': return "+0 جديدة";
+      default: return "لا توجد بيانات سابقة";
+    }
+  }
+  
+  const change = ((currentValue - previousValue) / previousValue) * 100;
+  const absoluteChange = currentValue - previousValue;
+  
+  // تنسيق النسبة المئوية
+  const formattedPercentage = change >= 0 ? `+${change.toFixed(1)}%` : `${change.toFixed(1)}%`;
+  
+  // تنسيق التغيير المطلق
+  const formattedAbsolute = absoluteChange >= 0 ? `+${absoluteChange}` : `${absoluteChange}`;
+  
+  // إرجاع النص المناسب لكل نوع من الإحصائيات
+  switch(key) {
+    case 'sales':
+      return formattedPercentage + " عن الشهر الماضي";
+    case 'newOrders':
+      return `${formattedAbsolute} اليوم`;
+    case 'activeCustomers':
+      return formattedPercentage + " عن الأسبوع الماضي";
+    case 'products':
+      return `${formattedAbsolute} هذا الأسبوع`;
+    case 'revenue':
+      return change >= 0 ? `بزيادة ${formattedPercentage}` : `بانخفاض ${formattedPercentage.replace('-', '')}`;
+    case 'visits':
+      return formattedPercentage + " هذا الشهر";
+    case 'pendingOrders':
+      return absoluteChange > 0 ? `زيادة ${absoluteChange} طلب` : absoluteChange < 0 ? `انخفاض ${Math.abs(absoluteChange)} طلب` : "لا تغيير";
+    case 'newUsers':
+      return formattedPercentage + " عن الأسبوع الماضي";
+    case 'messages':
+      return `${formattedAbsolute} جديدة`;
+    default:
+      return formattedPercentage;
+  }
+};
+
+// 💡 مكون الرسم البياني البسيط
+const SimpleBarChart = ({ data, title }) => {
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-48 sm:h-64 flex items-center justify-center bg-muted/20 rounded-lg">
+        <div className="text-center">
+          <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+          <p className="text-muted-foreground">لا توجد بيانات متاحة</p>
+        </div>
+      </div>
+    );
+  }
+
+  const maxValue = Math.max(...data.map(item => item.value));
+  const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", 
+                 "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+
+  return (
+    <div className="h-48 sm:h-64 flex flex-col">
+      <div className="flex-1 flex items-end justify-between gap-1 sm:gap-2 px-2 sm:px-4 pb-4">
+        {data.map((item, index) => {
+          const heightPercentage = maxValue > 0 ? (item.value / maxValue) * 80 : 0;
+          const monthName = months[item.month - 1] || `الشهر ${item.month}`;
+          
+          return (
+            <div key={index} className="flex flex-col items-center flex-1">
+              <div 
+                className="w-full bg-gradient-to-t from-brand-blue to-blue-400 rounded-t transition-all duration-500 hover:from-blue-500 hover:to-brand-blue"
+                style={{ height: `${heightPercentage}%` }}
+              />
+              <div className="text-xs text-muted-foreground mt-1 text-center">
+                {monthName}
+              </div>
+              <div className="text-xs font-medium mt-1">
+                {item.value.toLocaleString()}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 export default function AdminDashboard() {
   const { user, isAdmin, isLoading } = useAdminAuth();
   const router = useRouter();
 
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<Record<string, any> | null>(null);
+  const [previousStats, setPreviousStats] = useState<Record<string, any> | null>(null);
   const [orders, setOrders] = useState<any[]>([]);
+  const [salesData, setSalesData] = useState<any[]>([]); // بيانات المبيعات للرسم البياني
   const [loadingData, setLoadingData] = useState(true);
 
+  // ... (Auth useEffect remains the same)
   useEffect(() => {
     if (!isLoading && (!user || !isAdmin)) {
       router.push("/login");
     }
   }, [user, isAdmin, isLoading, router]);
 
+  // ... (Data Fetching useEffect)
   useEffect(() => {
     const fetchData = async () => {
       try {
         const res = await fetch("/api/dashboard"); // replace with your DB API
         const data = await res.json();
+        
+        // 🔑 نفترض أن الـ API يرجع كائن بيانات الإحصائيات الحالية والسابقة
+        // يجب أن يكون هيكل البيانات من الخادم:
+        // {
+        //   stats: { sales: 15000, newOrders: 12, ... },
+        //   previousStats: { sales: 12000, newOrders: 10, ... },
+        //   salesData: [
+        //     { month: 1, value: 12000, year: 2024 },
+        //     { month: 2, value: 15000, year: 2024 },
+        //     ...
+        //   ],
+        //   orders: [...]
+        // }
+        
         setStats(data?.stats || {});
-        setOrders(data?.orders || []);
+        setPreviousStats(data?.previousStats || {});
+        setSalesData(data?.salesData || []); // بيانات الرسم البياني
+        setOrders(data?.orders?.slice(0, 3) || []);
       } catch (error) {
         console.error("فشل تحميل البيانات", error);
         setStats({});
+        setPreviousStats({});
+        setSalesData([]);
         setOrders([]);
       } finally {
         setLoadingData(false);
@@ -54,12 +187,30 @@ export default function AdminDashboard() {
 
   if (!user || !isAdmin) return null;
 
-  const statsCards = [
-    { title: "إجمالي المبيعات", value: stats?.sales || 0, change: "+12.5%", icon: TrendingUp, color: "text-green-500" },
-    { title: "الطلبات الجديدة", value: stats?.newOrders || 0, change: "+5 اليوم", icon: ShoppingCart, color: "text-brand-blue" },
-    { title: "العملاء النشطين", value: stats?.activeCustomers || 0, change: "+8.2%", icon: Users, color: "text-brand-yellow" },
-    { title: "المنتجات", value: stats?.products || 0, change: "+3 هذا الأسبوع", icon: Package, color: "text-purple-500" },
-  ];
+  // 🪄 إنشاء بطاقات الإحصائيات الديناميكية
+  const dynamicStatsCards = stats
+    ? Object.keys(stats)
+        .filter(key => STAT_CARD_CONFIG[key] !== undefined)
+        .map((key) => {
+          const config = STAT_CARD_CONFIG[key];
+          const statValue = stats[key];
+          const previousValue = previousStats ? previousStats[key] : 0;
+          
+          const changeValue = calculateChange(statValue, previousValue, key);
+          
+          return {
+            title: config.title,
+            value: statValue,
+            change: changeValue,
+            icon: config.icon,
+            color: config.color,
+            key: key
+          };
+        })
+    : [];
+
+  // ✅ مسار صفحة إدارة الطلبات
+  const ordersPagePath = "/admin/orders"; 
 
   return (
     <div className="min-h-screen bg-background">
@@ -83,8 +234,8 @@ export default function AdminDashboard() {
       <div className="container mx-auto px-4 py-6 sm:py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-          {statsCards.map((stat, index) => (
-            <motion.div key={stat.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}>
+          {dynamicStatsCards.map((stat, index) => (
+            <motion.div key={stat.key} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}>
               <Card className="hover:shadow-lg transition-shadow">
                 <CardHeader className="flex items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
@@ -92,7 +243,15 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-xl sm:text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
+                  <p className={`text-xs mt-1 ${
+                    stat.change.includes('+') || stat.change.includes('زيادة') || stat.change.includes('بزيادة') 
+                      ? 'text-green-500' 
+                      : stat.change.includes('-') || stat.change.includes('انخفاض') || stat.change.includes('بانخفاض')
+                      ? 'text-red-500'
+                      : 'text-muted-foreground'
+                  }`}>
+                    {stat.change}
+                  </p>
                 </CardContent>
               </Card>
             </motion.div>
@@ -109,7 +268,7 @@ export default function AdminDashboard() {
                   <ShoppingCart className="h-5 w-5" />
                   الطلبات الأخيرة
                 </CardTitle>
-                <CardDescription>آخر الطلبات المستلمة من العملاء</CardDescription>
+                <CardDescription>آخر {orders.length} طلبات مستلمة من العملاء</CardDescription>
               </CardHeader>
               <CardContent>
                 {orders?.length > 0 ? (
@@ -145,7 +304,7 @@ export default function AdminDashboard() {
                         </div>
                         <div className="w-full sm:w-auto sm:text-left flex items-center justify-between sm:block">
                           <div className="font-bold text-brand-yellow">{order.amount} ر.س</div>
-                          <Button size="sm" variant="ghost" className="mt-0 sm:mt-1">
+                          <Button size="sm" variant="ghost" className="mt-0 sm:mt-1" onClick={() => router.push(ordersPagePath)}>
                             عرض التفاصيل
                           </Button>
                         </div>
@@ -155,12 +314,18 @@ export default function AdminDashboard() {
                 ) : (
                   <p className="text-muted-foreground text-center">لا توجد طلبات حتى الآن</p>
                 )}
-                <Button variant="outline" className="w-full mt-4 bg-transparent">عرض جميع الطلبات</Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full mt-4 bg-transparent"
+                  onClick={() => router.push(ordersPagePath)}
+                >
+                  عرض جميع الطلبات
+                </Button>
               </CardContent>
             </Card>
           </div>
 
-          {/* Performance Chart */}
+          {/* Dynamic Performance Chart */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}>
             <Card>
               <CardHeader>
@@ -168,15 +333,33 @@ export default function AdminDashboard() {
                   <BarChart3 className="h-5 w-5" />
                   أداء المبيعات
                 </CardTitle>
-                <CardDescription>إحصائيات المبيعات للأشهر الماضية</CardDescription>
+                <CardDescription>
+                  {salesData.length > 0 
+                    ? `إحصائيات المبيعات لآخر ${salesData.length} أشهر` 
+                    : "إحصائيات المبيعات للأشهر الماضية"
+                  }
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-48 sm:h-64 flex items-center justify-center bg-muted/20 rounded-lg">
-                  <div className="text-center">
-                    <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-muted-foreground">سيتم إضافة الرسوم البيانية قريباً</p>
+                <SimpleBarChart data={salesData} title="المبيعات الشهرية" />
+                
+                {/* إحصائيات إضافية */}
+                {salesData.length > 0 && (
+                  <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                    <div className="text-center p-2 bg-muted/20 rounded">
+                      <div className="text-muted-foreground">أعلى شهر</div>
+                      <div className="font-bold text-green-600">
+                        {Math.max(...salesData.map(item => item.value)).toLocaleString()} ر.س
+                      </div>
+                    </div>
+                    <div className="text-center p-2 bg-muted/20 rounded">
+                      <div className="text-muted-foreground">متوسط المبيعات</div>
+                      <div className="font-bold text-blue-600">
+                        {Math.round(salesData.reduce((sum, item) => sum + item.value, 0) / salesData.length).toLocaleString()} ر.س
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
