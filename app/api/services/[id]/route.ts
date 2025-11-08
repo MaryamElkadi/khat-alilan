@@ -18,9 +18,9 @@ const serviceSchema = new Schema(
 const Service = mongoose.models.Service || mongoose.model("Service", serviceSchema)
 
 // GET a single service by ID
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params; // ✅ Correct way to get the ID
+    const { id } = await params; // ✅ Await the params first
     await connectDB();
     const service = await Service.findById(id);
 
@@ -36,12 +36,13 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 // ✅ Update service by ID
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params; // ✅ Await the params first
     await connectDB();
     const body = await req.json();
 
-    const updated = await Service.findByIdAndUpdate(params.id, body, { new: true });
+    const updated = await Service.findByIdAndUpdate(id, body, { new: true });
 
     if (!updated) {
       return NextResponse.json({ error: "Service not found" }, { status: 404 });
@@ -55,10 +56,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 // ✅ Delete service by ID
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params; // ✅ Await the params first
     await connectDB();
-    const deleted = await Service.findByIdAndDelete(params.id);
+    const deleted = await Service.findByIdAndDelete(id);
 
     if (!deleted) {
       return NextResponse.json({ error: "Service not found" }, { status: 404 });

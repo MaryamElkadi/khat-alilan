@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Target, Eye, Heart, Users, Award, Clock, CheckCircle } from "lucide-react"
+import { useRouter } from "next/navigation" // ⬅️ هذا ما ناقصك
 
 const stats = [
   { number: "500+", label: "عميل راضٍ", icon: Users },
@@ -54,6 +55,8 @@ const team = [
 ]
 
 export default function AboutPage() {
+  const router = useRouter() // ⬅️ وهذا أيضاً ناقصك
+
   return (
     <div className="min-h-screen bg-background pt-20">
       <div className="container mx-auto px-4 py-16">
@@ -171,21 +174,7 @@ export default function AboutPage() {
           </div>
         </motion.div>
 
-        {/* CTA Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-          className="text-center p-8 rounded-2xl bg-gradient-to-r from-brand-blue/10 to-brand-yellow/10"
-        >
-          <h2 className="text-3xl font-bold mb-4">مستعدون لبدء مشروعك؟</h2>
-          <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-            انضم إلى مئات العملاء الراضين واكتشف كيف يمكننا مساعدتك في تحقيق أهدافك التسويقية
-          </p>
-          <Button size="lg" className="bg-brand-yellow text-black hover:bg-brand-yellow/90">
-            ابدأ مشروعك الآن
-          </Button>
-        </motion.div>
+    
       </div>
     </div>
   )
