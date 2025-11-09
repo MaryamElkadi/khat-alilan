@@ -1,4 +1,3 @@
-// lib/db.ts
 import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -28,10 +27,16 @@ export async function connectDB(): Promise<typeof mongoose> {
   if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI).then((mongooseInstance) => {
-      console.log("✅ Connected to MongoDB");
-      return mongooseInstance;
-    });
+    cached.promise = mongoose
+      .connect(MONGODB_URI, {
+        // optional but recommended
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+      } as mongoose.ConnectOptions)
+      .then((mongooseInstance) => {
+        console.log("✅ Connected to MongoDB");
+        return mongooseInstance;
+      });
   }
 
   cached.conn = await cached.promise;
