@@ -12,6 +12,7 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { ToastProvider } from "@/components/ToastProvider"
 import "./globals.css"
+
 // 👇 استيراد مزود NextAuth
 import { NextAuthProvider } from "@/lib/next-auth-provider" 
 

@@ -31,6 +31,7 @@ export default function RequestServicePage() {
     phone: "",
     notes: "",
   })
+  const [file, setFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isServiceLoading, setIsServiceLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -63,6 +64,7 @@ export default function RequestServicePage() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  // Handle form submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -73,34 +75,21 @@ export default function RequestServicePage() {
       return
     }
 
-    // For non-logged in users, we'll create an order without a user ID
-    // The API should handle guest orders
-    const requestData = {
-      // Remove user field for guest orders, or get it from a different auth hook
-      items: [
-        {
-          product: service._id,
-          modelType: "Service",
-          name: service.title,
-          price: Number(service.price),
-          quantity: 1,
-        },
-      ],
-      shippingInfo: {
-        customer: formData.name, // Use full name as customer
-        email: formData.email,
-        phone: formData.phone,
-      },
-      paymentMethod: "cash",
-      notes: formData.notes,
-      status: "جديد"
-    }
-
     try {
+      const formPayload = new FormData()
+      formPayload.append("name", formData.name)
+      formPayload.append("email", formData.email)
+      formPayload.append("phone", formData.phone)
+      formPayload.append("notes", formData.notes)
+      formPayload.append("serviceId", service._id)
+
+      if (file) {
+        formPayload.append("file", file)
+      }
+
       const res = await fetch("/api/orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestData),
+        body: formPayload,
       })
 
       if (!res.ok) {
@@ -108,14 +97,8 @@ export default function RequestServicePage() {
         throw new Error(errorData.error || "فشل إرسال الطلب. حاول مجدداً.")
       }
 
-      const data = await res.json()
       toast.success("تم استلام طلبك بنجاح! 🎉 سنتواصل معك قريباً")
-      
-      // Redirect to home or confirmation page
-      setTimeout(() => {
-        router.push("/")
-      }, 2000)
-      
+      setTimeout(() => router.push("/"), 2000)
     } catch (err: any) {
       console.error("Order submission error:", err)
       toast.error(err.message || "فشل إرسال الطلب. حاول مجدداً.")
@@ -218,6 +201,21 @@ export default function RequestServicePage() {
                   onChange={handleChange}
                   placeholder="05XXXXXXXX"
                   required
+                  className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              {/* File Upload */}
+              <div className="space-y-2">
+                <Label htmlFor="file" className="text-gray-700 dark:text-gray-300">
+                  رفع ملف التصميم (اختياري)
+                </Label>
+                <Input
+                  id="file"
+                  name="file"
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.pdf,.svg,.zip"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
                   className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
                 />
               </div>
