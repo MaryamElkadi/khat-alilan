@@ -5,7 +5,18 @@ import { motion } from "framer-motion"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, Package, Clock, XCircle, CheckCircle, CreditCard, ArrowLeft } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Calendar,
+  Package,
+  Clock,
+  XCircle,
+  CheckCircle,
+  CreditCard,
+  ArrowLeft,
+  ShoppingBag,
+  Wrench,
+} from "lucide-react"
 import { useAdminAuth } from "@/lib/admin-auth"
 import { OrderDetailModal } from "@/components/order-detail-modal"
 
@@ -16,6 +27,7 @@ interface Order {
   totalAmount: number
   status: string
   createdAt: string
+  type: "product" | "service" // Added type field to distinguish products from services
   items?: Array<{
     name: string
     price: number
@@ -59,6 +71,7 @@ export default function UserOrdersPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<"all" | "products" | "services">("all") // Added tab state for filtering
 
   useEffect(() => {
     if (authLoading) return
@@ -85,6 +98,16 @@ export default function UserOrdersPage() {
 
     fetchOrders()
   }, [user, authLoading])
+
+  const filteredOrders = orders.filter((order) => {
+    if (activeTab === "all") return true
+    if (activeTab === "products") return order.type === "product"
+    if (activeTab === "services") return order.type === "service"
+    return true
+  })
+
+  const productOrders = orders.filter((o) => o.type === "product")
+  const serviceOrders = orders.filter((o) => o.type === "service")
 
   if (authLoading) return <div className="text-center text-gray-500 py-10">جاري تحميل البيانات...</div>
   if (loading) return <div className="text-center text-gray-500 py-10">جاري تحميل الطلبات...</div>
@@ -117,61 +140,101 @@ export default function UserOrdersPage() {
             <p className="text-muted-foreground">لا توجد طلبات حالياً</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {orders.map((order) => (
-              <Card key={order._id} className="border border-gray-200 bg-muted/20 shadow-sm flex flex-col">
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg font-bold text-foreground">
-                      {order.orderNumber ? `طلب ${order.orderNumber}` : order._id.slice(-6)}
-                    </CardTitle>
-                    <Badge className={`flex items-center gap-1 ${getStatusColor(order.status)}`}>
-                      {getStatusIcon(order.status)}
-                      {order.status}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-muted-foreground flex items-center gap-1 mt-2">
-                    <Calendar className="h-4 w-4" />
-                    {new Date(order.createdAt).toLocaleDateString("ar-SA")}
-                  </div>
-                </CardHeader>
+          <>
+            <Tabs
+              defaultValue="all"
+              onValueChange={(val) => setActiveTab(val as "all" | "products" | "services")}
+              className="mb-8"
+            >
+              <TabsList className="w-full grid grid-cols-3">
+                <TabsTrigger value="all">جميع الطلبات ({orders.length})</TabsTrigger>
+                <TabsTrigger value="products" className="flex items-center gap-2">
+                  <ShoppingBag className="h-4 w-4" />
+                  المنتجات ({productOrders.length})
+                </TabsTrigger>
+                <TabsTrigger value="services" className="flex items-center gap-2">
+                  <Wrench className="h-4 w-4" />
+                  الخدمات ({serviceOrders.length})
+                </TabsTrigger>
+              </TabsList>
 
-                <CardContent className="flex-1 flex flex-col">
-                  <div className="flex-1">
-                    <div className="flex justify-between text-sm text-muted-foreground border-b border-gray-200 py-2">
-                      <span className="flex items-center gap-1">
-                        <CreditCard className="h-4 w-4" /> المبلغ:
-                      </span>
-                      <span className="font-bold text-brand-blue">{order.total || order.totalAmount} ر.س</span>
-                    </div>
-
-                    {order.items && (
-                      <div className="mt-3">
-                        <p className="text-muted-foreground text-sm mb-2">الخدمات:</p>
-                        {order.items.slice(0, 3).map((item, i) => (
-                          <div key={i} className="flex justify-between text-sm">
-                            <span className="text-foreground">{item.name}</span>
-                            <span className="text-brand-blue">{item.price} ر.س</span>
+              <TabsContent value={activeTab} className="mt-8">
+                {filteredOrders.length === 0 ? (
+                  <div className="text-center py-12 bg-muted/30 rounded-lg border-2 border-dashed border-gray-300">
+                    <Package className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-muted-foreground">
+                      {activeTab === "products" && "لا توجد طلبات منتجات"}
+                      {activeTab === "services" && "لا توجد طلبات خدمات"}
+                      {activeTab === "all" && "لا توجد طلبات"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredOrders.map((order) => (
+                      <Card key={order._id} className="border border-gray-200 bg-muted/20 shadow-sm flex flex-col">
+                        <CardHeader className="pb-2">
+                          <div className="flex justify-between items-start gap-2">
+                            <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+                              {order.type === "product" ? (
+                                <ShoppingBag className="h-5 w-5 text-blue-500" />
+                              ) : (
+                                <Wrench className="h-5 w-5 text-purple-500" />
+                              )}
+                              {order.orderNumber ? `طلب ${order.orderNumber}` : order._id.slice(-6)}
+                            </CardTitle>
+                            <Badge className={`flex items-center gap-1 ${getStatusColor(order.status)}`}>
+                              {getStatusIcon(order.status)}
+                              {order.status}
+                            </Badge>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                          <div className="text-sm text-muted-foreground flex items-center gap-1 mt-2">
+                            <Calendar className="h-4 w-4" />
+                            {new Date(order.createdAt).toLocaleDateString("ar-SA")}
+                          </div>
+                        </CardHeader>
 
-                  <Button
-                    onClick={() => {
-                      setSelectedOrder(order)
-                      setModalOpen(true)
-                    }}
-                    className="w-full mt-4 bg-brand-blue hover:bg-brand-blue/90 text-white gap-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    تتبع الطلب
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                        <CardContent className="flex-1 flex flex-col">
+                          <div className="flex-1">
+                            <div className="flex justify-between text-sm text-muted-foreground border-b border-gray-200 py-2">
+                              <span className="flex items-center gap-1">
+                                <CreditCard className="h-4 w-4" /> المبلغ:
+                              </span>
+                              <span className="font-bold text-brand-blue">{order.total || order.totalAmount} ر.س</span>
+                            </div>
+
+                            {order.items && (
+                              <div className="mt-3">
+                                <p className="text-muted-foreground text-sm mb-2">
+                                  {order.type === "product" ? "المنتجات:" : "الخدمات:"}
+                                </p>
+                                {order.items.slice(0, 3).map((item, i) => (
+                                  <div key={i} className="flex justify-between text-sm">
+                                    <span className="text-foreground">{item.name}</span>
+                                    <span className="text-brand-blue">{item.price} ر.س</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <Button
+                            onClick={() => {
+                              setSelectedOrder(order)
+                              setModalOpen(true)
+                            }}
+                            className="w-full mt-4 bg-brand-blue hover:bg-brand-blue/90 text-white gap-2"
+                          >
+                            <ArrowLeft className="h-4 w-4" />
+                            تتبع الطلب
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </>
         )}
       </motion.div>
 
