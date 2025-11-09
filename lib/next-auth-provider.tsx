@@ -1,15 +1,10 @@
-"use client"
+// @/lib/next-auth-provider.tsx
+'use client'; // هذا السطر ضروري جداً
 
-import { SessionProvider } from "next-auth/react"
-import type { Session } from "next-auth"
-import type React from "react"
+import { SessionProvider } from 'next-auth/react';
+import type { ReactNode } from 'react';
 
-export function NextAuthProvider({
-  children,
-  session,
-}: {
-  children: React.ReactNode
-  session?: Session
-}) {
-  return <SessionProvider session={session}>{children}</SessionProvider>
+
+export function NextAuthProvider({ children }: { children: ReactNode }) {
+  return <SessionProvider>{children}</SessionProvider>;
 }

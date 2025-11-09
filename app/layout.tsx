@@ -10,9 +10,10 @@ import { FloatingActionButton } from "@/components/floating-action-button"
 import { ScrollToTop } from "@/components/scroll-to-top"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
-import { ToastProvider } from "@/components/ToastProvider" // ✅ استدعاء
+import { ToastProvider } from "@/components/ToastProvider"
 import "./globals.css"
-import { NextAuthProvider } from "@/lib/next-auth-provider"
+// 👇 استيراد مزود NextAuth
+import { NextAuthProvider } from "@/lib/next-auth-provider" 
 
 const notoSansArabic = Noto_Sans_Arabic({
   subsets: ["arabic"],
@@ -32,7 +33,8 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" className="dark">
       <body className={`font-arabic ${notoSansArabic.variable} antialiased`}>
-        <NextAuthProvider>
+        {/* 👇 تغليف التطبيق بمزود NextAuth */}
+        <NextAuthProvider> 
           <AdminAuthProvider>
             <AuthProvider>
               <CartProvider>
