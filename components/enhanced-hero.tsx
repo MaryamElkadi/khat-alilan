@@ -58,7 +58,7 @@ export function EnhancedHero() {
               ease: "easeInOut",
               delay: i * 0.5,
             }}
-            className={`absolute w-2 h-2 bg-brand-yellow/60 rounded-full`}
+            className="absolute w-2 h-2 bg-brand-yellow/60 rounded-full"
             style={{
               top: `${20 + i * 10}%`,
               left: `${10 + i * 15}%`,
@@ -74,7 +74,7 @@ export function EnhancedHero() {
           animate="visible"
           className="text-center max-w-4xl mx-auto"
         >
-          {/* Enhanced Main Headline */}
+          {/* Headline */}
           <motion.div variants={fadeInUp} className="relative">
             <motion.div
               animate={{ rotate: [0, 5, -5, 0] }}
@@ -83,7 +83,8 @@ export function EnhancedHero() {
             >
               <Sparkles className="h-8 w-8" />
             </motion.div>
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+
+            <h1 className="text-5xl md:text-7xl font-bold mb-4 leading-tight">
               <motion.span
                 animate={{
                   textShadow: ["0 0 0px #FFD700", "0 0 20px #FFD700", "0 0 0px #FFD700"],
@@ -91,9 +92,29 @@ export function EnhancedHero() {
                 transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY }}
                 className="text-brand-yellow"
               >
-                إبداع إعلاني
+                خط{" "}
               </motion.span>
-              <br />
+              <motion.span
+                animate={{
+                  textShadow: ["0 0 0px #1E40AF", "0 0 20px #1E40AF", "0 0 0px #1E40AF"],
+                }}
+                transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY }}
+                className="text-brand-blue"
+              >
+                الإعلان
+              </motion.span>
+            </h1>
+
+            <p className="text-5xl md:text-5xl font-semibold mt-2 leading-snug">
+              <motion.span
+                animate={{
+                  textShadow: ["0 0 0px #FFD700", "0 0 20px #FFD700", "0 0 0px #FFD700"],
+                }}
+                transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY }}
+                className="text-brand-yellow"
+              >
+                إبداع إعلاني{" "} <br></br>
+              </motion.span>
               <motion.span
                 animate={{
                   textShadow: ["0 0 0px #1E40AF", "0 0 20px #1E40AF", "0 0 0px #1E40AF"],
@@ -103,10 +124,10 @@ export function EnhancedHero() {
               >
                 لا حدود له
               </motion.span>
-            </h1>
+            </p>
           </motion.div>
 
-          {/* Enhanced Subtitle */}
+          {/* Subtitle */}
           <motion.p
             variants={fadeInUp}
             className="text-xl md:text-2xl text-muted-foreground mb-8 leading-relaxed max-w-2xl mx-auto"
@@ -115,14 +136,9 @@ export function EnhancedHero() {
             المستهدف بأفضل الطرق
           </motion.p>
 
+          {/* Buttons */}
           <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <motion.div
-              whileHover={{
-                scale: 1.05,
-                boxShadow: "0 10px 30px rgba(255, 215, 0, 0.3)",
-              }}
-              whileTap={{ scale: 0.95 }}
-            >
+            <motion.div whileHover={{ scale: 1.05, boxShadow: "0 10px 30px rgba(255, 215, 0, 0.3)" }} whileTap={{ scale: 0.95 }}>
               <Button
                 size="lg"
                 className="bg-brand-yellow text-black hover:bg-brand-yellow/90 px-8 py-6 text-lg font-semibold rounded-xl relative overflow-hidden group"
@@ -140,13 +156,7 @@ export function EnhancedHero() {
               </Button>
             </motion.div>
 
-            <motion.div
-              whileHover={{
-                scale: 1.05,
-                boxShadow: "0 10px 30px rgba(30, 64, 175, 0.3)",
-              }}
-              whileTap={{ scale: 0.95 }}
-            >
+            <motion.div whileHover={{ scale: 1.05, boxShadow: "0 10px 30px rgba(30, 64, 175, 0.3)" }} whileTap={{ scale: 0.95 }}>
               <Button
                 variant="outline"
                 size="lg"
@@ -161,7 +171,7 @@ export function EnhancedHero() {
             </motion.div>
           </motion.div>
 
-          {/* Enhanced Stats */}
+          {/* Stats */}
           <motion.div
             variants={staggerContainer}
             className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-16 pt-16 border-t border-border/40"
@@ -175,21 +185,12 @@ export function EnhancedHero() {
               <motion.div
                 key={stat.label}
                 variants={fadeInUp}
-                whileHover={{
-                  scale: 1.1,
-                  y: -5,
-                }}
+                whileHover={{ scale: 1.1, y: -5 }}
                 className="text-center cursor-pointer"
               >
                 <motion.div
-                  animate={{
-                    scale: [1, 1.05, 1],
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Number.POSITIVE_INFINITY,
-                    delay: index * 0.5,
-                  }}
+                  animate={{ scale: [1, 1.05, 1] }}
+                  transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, delay: index * 0.5 }}
                   className="text-3xl md:text-4xl font-bold text-brand-yellow mb-2"
                 >
                   {stat.number}
@@ -201,7 +202,7 @@ export function EnhancedHero() {
         </motion.div>
       </motion.div>
 
-      {/* Enhanced Scroll Indicator */}
+      {/* Scroll Indicator */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

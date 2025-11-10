@@ -8,80 +8,122 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useCart } from "@/lib/CartProvider"
-// IMPORTANT: These are assumed imports. Ensure these files exist and are correct.
-import { useScrollAnimation, fadeInUp, staggerContainer } from "@/lib/scroll-animations" 
 import { useRouter } from "next/navigation"
 
-// --- Assumed Type Definition for context ---
-// Replace this with your actual type definition file if needed.
+// Define proper Product type
 type Product = {
-  id: string;
-  _id: string; // Used in your viewProductDetails call
-  title: string;
-  description: string;
-  price: number;
-  category: string;
-  image?: string[];
+  _id: string
+  id?: string
+  title: string
+  description: string
+  price: number
+  category: string
+  image?: string[]
+  rating?: number
+  reviewCount?: number
 }
-// ------------------------------------------
 
 export function FeaturedProducts() {
-  // Initialize with an empty array to ensure map() is safe on first render
-  const [products, setProducts] = useState<Product[]>([]) 
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const { addItem } = useCart()
-  const { ref, controls } = useScrollAnimation()
   const router = useRouter()
-  const [loading, setLoading] = useState(true);
 
-  // ✅ Fetch products
   useEffect(() => {
     const fetchProducts = async () => {
-      setLoading(true);
+      setLoading(true)
+      setError(null)
       try {
+        console.log("Fetching products from /api/products...")
         const res = await fetch("/api/products")
-        if (!res.ok) throw new Error("Failed to fetch products")
-        const data = await res.json()
         
-        // CRITICAL CHECK: Ensure the fetched data is an array
+        if (!res.ok) {
+          throw new Error(`Failed to fetch products: ${res.status} ${res.statusText}`)
+        }
+        
+        const data = await res.json()
+        console.log("Products API response:", data)
+
+        // Handle different response formats
         if (Array.isArray(data)) {
           setProducts(data)
-        } else if (data && data.products && Array.isArray(data.products)) {
-          // Alternative: Handle common API response structure like { products: [...] }
-          setProducts(data.products as Product[]);
+        } else if (data && Array.isArray(data.products)) {
+          setProducts(data.products)
+        } else if (data && Array.isArray(data.data)) {
+          setProducts(data.data)
         } else {
-          // If the data is still not an array, log the issue and set an empty array
-          console.error("API response format is incorrect:", data);
-          setProducts([]);
+          console.warn("Unexpected API response format:", data)
+          setProducts([])
         }
 
       } catch (error) {
         console.error("Error fetching products:", error)
-        setProducts([]) // Fallback to empty array on error
+        setError(error instanceof Error ? error.message : "Unknown error occurred")
+        setProducts([])
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
+
     fetchProducts()
   }, [])
 
   const addToCart = (product: Product) => addItem(product)
-  const viewProductDetails = (productId: string) => router.push(`/products/${productId}`)
-  const viewAllProducts = () => router.push("/products")
+  
+  const viewProductDetails = (productId: string) => {
+    router.push(`/products/${productId}`)
+  }
+  
+  const viewAllProducts = () => {
+    router.push("/products")
+  }
 
-  // Optional: Add a loading state UI
+  // Enhanced loading state
   if (loading) {
-     return (
-        <section className="py-20 text-center text-xl text-brand-blue">
-            جاري تحميل المنتجات...
-        </section>
-     );
+    return (
+      <section className="py-20 bg-gradient-to-b from-muted/30 to-background">
+        <div className="container mx-auto px-4 text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-brand-blue mx-auto mb-4"></div>
+          <p className="text-xl text-brand-blue">جاري تحميل المنتجات...</p>
+          <p className="text-sm text-muted-foreground mt-2">يرجى الانتظار</p>
+        </div>
+      </section>
+    )
+  }
+
+  // Enhanced error state
+  if (error) {
+    return (
+      <section className="py-20 bg-gradient-to-b from-muted/30 to-background">
+        <div className="container mx-auto px-4 text-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+            <p className="text-red-600 font-medium mb-2">حدث خطأ في تحميل المنتجات</p>
+            <p className="text-red-500 text-sm mb-4">{error}</p>
+            <Button 
+              onClick={() => window.location.reload()}
+              variant="outline"
+              size="sm"
+            >
+              إعادة المحاولة
+            </Button>
+          </div>
+        </div>
+      </section>
+    )
   }
 
   return (
-    <section className="py-20" ref={ref}>
+    <section className="py-20 bg-gradient-to-b from-muted/30 to-background">
       <div className="container mx-auto px-4">
         {/* Heading */}
-        <motion.div animate={controls} initial="hidden" variants={fadeInUp} className="text-center mb-16 relative">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+          className="text-center mb-16 relative"
+        >
           <motion.div
             animate={{ rotate: [0, 360], scale: [1, 1.2, 1] }}
             transition={{ duration: 4, repeat: Infinity }}
@@ -91,158 +133,125 @@ export function FeaturedProducts() {
           </motion.div>
 
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            <motion.span
-              animate={{ textShadow: ["0 0 0px #1E40AF", "0 0 15px #1E40AF", "0 0 0px #1E40AF"] }}
-              transition={{ duration: 2.5, repeat: Infinity }}
-              className="text-brand-blue"
-            >
-              جميع
-            </motion.span>{" "}
-            <motion.span
-              animate={{ textShadow: ["0 0 0px #FFD700", "0 0 15px #FFD700", "0 0 0px #FFD700"] }}
-              transition={{ duration: 2.5, repeat: Infinity, delay: 1.25 }}
-              className="text-brand-yellow"
-            >
-              المنتجات
-            </motion.span>
+            <span className="text-brand-blue">جميع</span>{" "}
+            <span className="text-brand-yellow">المنتجات</span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            جميع خدماتنا وباقاتنا الإعلانية متاحة لنجاح مشروعك
+            اكتشف مجموعة منتجاتنا المتميزة المصممة لنجاحك
           </p>
         </motion.div>
 
         {/* Products Grid */}
-        <motion.div
-          animate={controls}
-          initial="hidden"
-          variants={staggerContainer}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-        >
-          {/* FIX IMPLEMENTED HERE: 
-            The initial state is [], but ensuring Array.isArray(products) 
-            prevents the crash if the API response incorrectly sets it to null/object.
-          */}
-          {Array.isArray(products) && products.map((product) => (
-            <motion.div
-              key={product._id || product.id} // Use _id if available, otherwise id
-              variants={fadeInUp}
-              whileHover={{
-                y: -10,
-                rotateY: 5,
-                boxShadow: "0 20px 40px rgba(0,0,0,0.1)",
-              }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <Card className="h-full overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group relative">
-                
-                {/* Animated Gradient Border */}
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-brand-yellow via-brand-blue to-brand-yellow opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                  animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
-                  transition={{ duration: 3, repeat: Infinity }}
-                  style={{ backgroundSize: "200% 200%" }}
-                />
-
-                <div className="relative bg-background m-0.5 rounded-lg overflow-hidden h-full">
+        {products.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="bg-muted/50 rounded-lg p-8 max-w-md mx-auto">
+              <ShoppingCart className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">لا توجد منتجات حالياً</h3>
+              <p className="text-muted-foreground">سنضيف منتجات قريباً</p>
+            </div>
+          </div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.6, staggerChildren: 0.1 }}
+            viewport={{ once: true }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
+            {products.map((product, index) => (
+              <motion.div
+                key={product._id || product.id}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                viewport={{ once: true }}
+                whileHover={{ y: -8 }}
+                className="h-full"
+              >
+                <Card className="h-full border-0 shadow-lg hover:shadow-2xl transition-all duration-300 bg-card backdrop-blur-sm relative overflow-hidden group">
                   <CardHeader className="p-0 relative">
                     <div className="relative overflow-hidden">
                       <img
                         src={product.image?.[0] || "/placeholder.svg"}
                         alt={product.title}
-                        className="w-full h-64 object-cover rounded"
+                        className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-110"
                       />
-
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        whileHover={{ opacity: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"
-                      />
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileHover={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: 0.1 }}
-                        className="absolute inset-0 flex items-center justify-center"
-                      >
-                        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-                          <Button
-                            size="sm"
-                            className="bg-brand-yellow text-black hover:bg-brand-yellow/90 shadow-lg"
-                            // Ensure product._id exists if you are using it in the URL
-                            onClick={() => viewProductDetails(product._id || product.id)} 
-                          >
-                            <Eye className="h-4 w-4 ml-2" />
-                            عرض التفاصيل
-                          </Button>
-                        </motion.div>
-                      </motion.div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     </div>
                   </CardHeader>
 
                   <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-3">
                       <Badge variant="outline" className="text-xs border-brand-blue text-brand-blue">
                         {product.category}
                       </Badge>
-                      <motion.div className="flex items-center" whileHover={{ scale: 1.1 }}>
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className="h-3 w-3 fill-brand-yellow text-brand-yellow" />
-                        ))}
-                      </motion.div>
+                      {product.rating && (
+                        <div className="flex items-center gap-1">
+                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                          <span className="text-xs text-muted-foreground">{product.rating}</span>
+                        </div>
+                      )}
                     </div>
 
-                    <h3 className="font-bold text-lg mb-2 text-foreground leading-tight">{product.title}</h3>
-                    <p className="text-muted-foreground text-sm mb-4 leading-relaxed">{product.description}</p>
+                    <h3 className="font-bold text-lg mb-2 text-foreground leading-tight">
+                      {product.title}
+                    </h3>
+                    <p className="text-muted-foreground text-sm mb-4 leading-relaxed line-clamp-2">
+                      {product.description}
+                    </p>
 
                     <div className="flex items-center justify-between">
-                      <motion.div
-                        className="text-2xl font-bold text-brand-yellow"
-                        animate={{ scale: [1, 1.05, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      >
+                      <div className="text-2xl font-bold text-brand-yellow">
                         {product.price.toLocaleString()} ر.س
-                      </motion.div>
+                      </div>
                       <div className="text-xs text-muted-foreground">يبدأ من</div>
                     </div>
                   </CardContent>
 
                   <CardFooter className="p-6 pt-0">
-                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full">
-                      {/* You had the Add to Cart button commented out, keeping it that way */}
-                      {/* <Button
+                    <div className="flex gap-2 w-full">
+                      <Button
+                        variant="outline"
+                        className="flex-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                        onClick={() => viewProductDetails(product._id || product.id!)}
+                      >
+                        <Eye className="h-4 w-4 ml-2" />
+                        التفاصيل
+                      </Button>
+                      <Button
+                        className="flex-1 bg-gradient-to-r from-brand-blue to-blue-600 hover:from-brand-blue/90 hover:to-blue-600/90"
                         onClick={() => addToCart(product)}
-                        className="w-full bg-brand-blue hover:bg-brand-blue/90 text-white relative overflow-hidden group"
                       >
                         <ShoppingCart className="h-4 w-4 ml-2" />
-                        أضف إلى السلة
-                      </Button> */}
-                    </motion.div>
+                        أضف للسلة
+                      </Button>
+                    </div>
                   </CardFooter>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-          
-          {/* Show message if no products are found */}
-          {!loading && products.length === 0 && (
-            <div className="col-span-full text-center text-muted-foreground p-10">
-              <p className="text-lg">لا توجد منتجات لعرضها حاليًا.</p>
-              <p className="text-sm">قد تكون هناك مشكلة في جلب البيانات من الخادم.</p>
-            </div>
-          )}
-        </motion.div>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
 
-        {/* View All Button */}
-        <motion.div animate={controls} initial="hidden" variants={fadeInUp} className="text-center mt-12">
-          <Button
-            variant="outline"
-            size="lg"
-            className="border-2 border-brand-blue text-brand-blue hover:bg-brand-blue hover:text-white px-8 py-6 text-lg bg-transparent"
-            onClick={viewAllProducts}
+        {/* View All Button - Only show if there are products */}
+        {products.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            viewport={{ once: true }}
+            className="text-center mt-12"
           >
-            عرض جميع المنتجات
-          </Button>
-        </motion.div>
+            <Button
+              size="lg"
+              variant="outline"
+              className="border-brand-blue text-brand-blue hover:bg-brand-blue hover:text-white text-lg px-8"
+              onClick={viewAllProducts}
+            >
+              عرض جميع المنتجات ({products.length})
+            </Button>
+          </motion.div>
+        )}
       </div>
     </section>
   )
