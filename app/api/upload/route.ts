@@ -1,54 +1,79 @@
-import { NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { NextRequest, NextResponse } from 'next/server'
+import { writeFile, mkdir } from 'fs/promises'
+import { join } from 'path'
+import { existsSync } from 'fs'
 
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
+    const formData = await request.formData()
+    const file = formData.get('file') as File
 
     if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+      return NextResponse.json({ error: 'لم يتم اختيار ملف' }, { status: 400 })
     }
 
     // Validate file type
-    if (!file.type.startsWith('image/')) {
-      return NextResponse.json({ error: "Only image files are allowed" }, { status: 400 });
+    const allowedTypes = [
+      'image/jpeg', 
+      'image/jpg', 
+      'image/png', 
+      'image/gif', 
+      'image/webp',
+      'video/mp4',
+      'video/webm',
+      'video/ogg'
+    ]
+    
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json(
+        { error: 'نوع الملف غير مدعوم. الرجاء اختيار صورة أو فيديو' },
+        { status: 400 }
+      )
     }
 
-    // Validate file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    // Validate file size (10MB max)
+    const maxSize = 10 * 1024 * 1024 // 10MB
     if (file.size > maxSize) {
-      return NextResponse.json({ error: "File size too large. Maximum 10MB allowed" }, { status: 400 });
+      return NextResponse.json(
+        { error: 'حجم الملف كبير جداً. الحد الأقصى 10MB' },
+        { status: 400 }
+      )
     }
 
-    // Upload to Vercel Blob
-    const blob = await put(`products/${Date.now()}-${file.name}`, file, {
-      access: 'public',
-    });
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
 
-    console.log("✅ Image uploaded to Vercel Blob:", blob.url);
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = join(process.cwd(), 'public/uploads')
+    if (!existsSync(uploadsDir)) {
+      await mkdir(uploadsDir, { recursive: true })
+    }
+
+    // Generate unique filename
+    const timestamp = Date.now()
+    const originalName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+    const filename = `work-${timestamp}-${originalName}`
+    const filepath = join(uploadsDir, filename)
+
+    // Save file
+    await writeFile(filepath, buffer)
+
+    // Return the public URL
+    const url = `/uploads/${filename}`
+
+    console.log('✅ File uploaded successfully:', url)
 
     return NextResponse.json({ 
       success: true,
-      url: blob.url,
-      pathname: blob.pathname,
-      message: "File uploaded successfully"
-    });
+      url: url,
+      message: 'تم رفع الملف بنجاح'
+    })
 
-  } catch (err: any) {
-    console.error("Upload error:", err);
-    
-    // Handle Vercel Blob specific errors
-    if (err.message?.includes('No token found')) {
-      return NextResponse.json(
-        { error: "Storage configuration error. Please check BLOB_READ_WRITE_TOKEN environment variable." },
-        { status: 500 }
-      );
-    }
-    
+  } catch (error) {
+    console.error('Upload error:', error)
     return NextResponse.json(
-      { error: "Upload failed", details: err.message },
+      { error: 'فشل في رفع الملف' },
       { status: 500 }
-    );
+    )
   }
 }

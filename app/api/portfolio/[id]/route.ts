@@ -1,75 +1,76 @@
-
 import { NextResponse } from "next/server"
 import { connectDB } from "@/lib/db"
-import { ObjectId } from "mongodb"
+import Portfolio from "@/models/Portfolio"
 
-
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+// GET single item by ID
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const db = await connectDB()
-    const portfolio = await db.connection.db.collection("portfolio").findOne({ 
-      _id: new ObjectId(params.id) 
-    })
-    
+    await connectDB()
+    const { id } = await params
+
+    const portfolio = await Portfolio.findById(id)
+
     if (!portfolio) {
-      return NextResponse.json({ error: "portfolio not found" }, { status: 404 })
+      return NextResponse.json({ error: "لم يتم العثور على العمل" }, { status: 404 })
     }
-    
+
     return NextResponse.json(portfolio)
   } catch (error) {
-    console.error("Error fetching work:", error)
+    console.error("Error fetching portfolio:", error)
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "خطأ في الخادم الداخلي" },
       { status: 500 }
     )
   }
 }
 
-// DELETE work
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+// UPDATE item by ID
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const db = await connectDB()
-    const result = await db.connection.db.collection("portfolio").deleteOne({ 
-      _id: new ObjectId(params.id) 
-    })
-    
-    if (result.deletedCount === 0) {
-      return NextResponse.json({ error: "Work not found" }, { status: 404 })
-    }
-    
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Error deleting work:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
-  }
-}
-
-// UPDATE work
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  try {
-    const db = await connectDB()
+    await connectDB()
+    const { id } = await params
     const body = await req.json()
-    
-    // Remove _id from body if present to avoid update issues
-    const { _id, ...updateData } = body
-    
-    const result = await db.connection.db.collection("portfolio").updateOne(
-      { _id: new ObjectId(params.id) },
-      { $set: updateData }
+
+    const updatedPortfolio = await Portfolio.findByIdAndUpdate(
+      id,
+      body,
+      { new: true, runValidators: true }
     )
-    
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ error: "Work not found" }, { status: 404 })
+
+    if (!updatedPortfolio) {
+      return NextResponse.json({ error: "لم يتم العثور على العمل" }, { status: 404 })
     }
-    
-    return NextResponse.json({ success: true })
+
+    return NextResponse.json(updatedPortfolio)
   } catch (error) {
-    console.error("Error updating work:", error)
+    console.error("Error updating portfolio:", error)
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "خطأ في الخادم الداخلي" },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE item by ID
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    await connectDB()
+    const { id } = await params
+
+    const deletedPortfolio = await Portfolio.findByIdAndDelete(id)
+
+    if (!deletedPortfolio) {
+      return NextResponse.json({ error: "لم يتم العثور على العمل" }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "تم حذف العمل بنجاح"
+    })
+  } catch (error) {
+    console.error("Error deleting portfolio:", error)
+    return NextResponse.json(
+      { error: "خطأ في الخادم الداخلي" },
       { status: 500 }
     )
   }

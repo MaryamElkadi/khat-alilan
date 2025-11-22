@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Navbar } from "@/components/navbar"
 import { EnhancedHero } from "@/components/enhanced-hero"
+import { WorksSection } from "@/components/works-section" // Add this import
 import { FeaturedServices } from "@/components/featured-services"
 import { FeaturedProducts } from "@/components/featured-products"
 import { AboutSection } from "@/components/about-section"
@@ -14,7 +15,7 @@ import { PageTransition } from "@/components/page-transition"
 import { useAdminAuth } from "@/lib/admin-auth"
 
 export default function HomePage() {
-  const { user, isAdmin, isLoading } = useAdminAuth() // <-- Destructuring these values
+  const { user, isAdmin, isLoading } = useAdminAuth()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
 
@@ -24,12 +25,10 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!isLoading && user && isAdmin) {
-      // If admin is logged in and visits homepage, redirect to admin dashboard
       router.push("/admin")
     }
   }, [user, isAdmin, isLoading, router])
 
-  // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -40,7 +39,6 @@ export default function HomePage() {
       </div>
     )
   }
-
 
   return (
     <PageTransition>
@@ -53,6 +51,7 @@ export default function HomePage() {
         
         <main>
           <EnhancedHero />
+          <WorksSection /> {/* Add this line */}
           <FeaturedServices />
           <FeaturedProducts />
           <AboutSection />

@@ -1,36 +1,52 @@
 import { NextResponse } from "next/server"
-import { connectDB } from "@/lib/db"  // لاحظ هنا {} لإنك عاملاه export function
+import { connectDB } from "@/lib/db"
 import Portfolio from "@/models/Portfolio"
 
-// ✅ GET: رجّع كل البورتفوليو
+// GET: Fetch ALL portfolio items
 export async function GET() {
-  await connectDB()
-  const items = await Portfolio.find({})
-  return NextResponse.json(items)
+  try {
+    await connectDB()
+    const items = await Portfolio.find({}).sort({ createdAt: -1 })
+    return NextResponse.json(items)
+  } catch (error) {
+    console.error("Error fetching portfolio:", error)
+    return NextResponse.json(
+      { error: "Failed to fetch portfolio items" },
+      { status: 500 }
+    )
+  }
 }
 
-// ✅ POST: أضف بورتفوليو جديد
+// POST: Add a new portfolio item
 export async function POST(req: Request) {
-  await connectDB()
-  const formData = await req.formData()
+  try {
+    await connectDB()
+    const body = await req.json()
 
-  const title = formData.get("title") as string
-  const description = formData.get("description") as string
-  const categories = JSON.parse(formData.get("categories") as string)
-  const image = formData.get("image") as File | null
+    const { title, description, category, image, tags, featured } = body
 
-  let imageUrl = ""
-  if (image) {
-    // تقدر ترفعها على Cloudinary أو تحفظها محلي
-    imageUrl = `/uploads/${image.name}`
+    if (!title || !category || !image) {
+      return NextResponse.json(
+        { error: "العنوان، التصنيف، والصورة مطلوبة" },
+        { status: 400 }
+      )
+    }
+
+    const newPortfolio = await Portfolio.create({
+      title,
+      description: description || "",
+      category,
+      image,
+      tags: tags || [],
+      featured: featured || false,
+    })
+
+    return NextResponse.json(newPortfolio, { status: 201 })
+  } catch (error) {
+    console.error("Error creating portfolio:", error)
+    return NextResponse.json(
+      { error: "فشل في إنشاء عنصر البورتفوليو" },
+      { status: 500 }
+    )
   }
-
-  const newPortfolio = await Portfolio.create({
-    title,
-    description,
-    category: categories[0] || "",
-    image: imageUrl,
-  })
-
-  return NextResponse.json(newPortfolio, { status: 201 })
 }
