@@ -455,12 +455,12 @@ export default function EditProductPage() {
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4 ">
+                <div className="space-y-4 text-black">
                   {quantities.map((q, index) => (
                     <div key={index} className="flex items-center gap-3 p-4 border rounded-lg bg-gray-50">
                       <div className="flex-1">
                         <Label htmlFor={`quantity-${index}`}>الكمية *</Label>
-                        <Input
+                        <Input className="border-black"
                           id={`quantity-${index}`}
                           type="number"
                           placeholder="مثال: 100"
@@ -471,7 +471,7 @@ export default function EditProductPage() {
                       </div>
                       <div className="flex-1">
                         <Label htmlFor={`price-${index}`}>السعر (ر.س) *</Label>
-                        <Input
+                        <Input className="border-black"
                           id={`price-${index}`}
                           type="number"
                           placeholder="مثال: 1500"
