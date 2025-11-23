@@ -284,3 +284,46 @@ export async function GET(req: Request) {
     );
   }
 }
+// Add this to your existing products/route.ts file
+export async function DELETE(req: Request) {
+  try {
+    await connectDB();
+    
+    // Get ID from query parameters
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    
+    console.log("🗑️ Attempting to delete product with ID:", id);
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "معرف المنتج مطلوب" }, 
+        { status: 400 }
+      );
+    }
+
+    const deletedProduct = await Product.findByIdAndDelete(id);
+
+    if (!deletedProduct) {
+      return NextResponse.json(
+        { success: false, error: "المنتج غير موجود" }, 
+        { status: 404 }
+      );
+    }
+
+    console.log("✅ Product deleted successfully:", id);
+
+    return NextResponse.json({ 
+      success: true,
+      message: "تم حذف المنتج بنجاح" 
+    }, { status: 200 });
+
+  } catch (error: any) {
+    console.error("❌ DELETE product error:", error);
+    return NextResponse.json({ 
+      success: false,
+      error: "فشل في حذف المنتج",
+      details: error.message 
+    }, { status: 500 });
+  }
+}
