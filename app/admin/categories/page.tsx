@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { Plus, Search, Edit, Trash2, Tag, Eye, EyeOff, Package, AlertTriangle } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Tag, Eye, EyeOff, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Dialog,
   DialogContent,
@@ -68,7 +67,6 @@ export default function CategoriesManagement() {
     image: "/placeholder-category.svg"
   })
   const [saving, setSaving] = useState(false)
-  const [duplicateWarning, setDuplicateWarning] = useState("")
 
   useEffect(() => {
     fetchAllData()
@@ -147,42 +145,6 @@ export default function CategoriesManagement() {
     }
   }
 
-  // Check for duplicate category names
-  const checkDuplicateCategory = (name: string): string => {
-    const trimmedName = name.trim()
-    
-    // Check in official categories
-    const existingOfficial = categories.find(cat => 
-      cat.name.toLowerCase() === trimmedName.toLowerCase()
-    )
-    
-    if (existingOfficial) {
-      return `⚠️ فئة باسم "${trimmedName}" موجودة بالفعل في الفئات الرسمية`
-    }
-    
-    // Check in legacy categories
-    const existingLegacy = legacyCategories.find(cat => 
-      cat.name.toLowerCase() === trimmedName.toLowerCase()
-    )
-    
-    if (existingLegacy) {
-      return `⚠️ فئة باسم "${trimmedName}" موجودة بالفعل في فئات المنتجات (${existingLegacy.productCount} منتج)`
-    }
-    
-    return ""
-  }
-
-  // Handle form input changes
-  const handleFormChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-    
-    // Check for duplicates when name changes
-    if (field === "name") {
-      const warning = checkDuplicateCategory(value)
-      setDuplicateWarning(warning)
-    }
-  }
-
   // Filter categories based on search term
   const filteredOfficialCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -197,12 +159,6 @@ export default function CategoriesManagement() {
 
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!formData.name.trim()) {
-      alert("يرجى إدخال اسم الفئة")
-      return
-    }
-
     setSaving(true)
 
     try {
@@ -217,20 +173,11 @@ export default function CategoriesManagement() {
       const result = await res.json()
 
       if (res.ok && result.success) {
-        // Show success message with duplicate warning if applicable
-        if (duplicateWarning) {
-          alert(`✅ تم إضافة الفئة بنجاح\n\n${duplicateWarning}`)
-        } else {
-          alert("✅ تم إضافة الفئة بنجاح")
-        }
-        
-        // Reset form and close dialog
+        alert("تم إضافة الفئة بنجاح")
         setFormData({ name: "", description: "", image: "/placeholder-category.svg" })
-        setDuplicateWarning("")
         setIsAddDialogOpen(false)
         fetchAllData()
       } else {
-        // Handle API errors (like validation errors from server)
         alert(result.error || "فشل في إضافة الفئة")
       }
     } catch (error) {
@@ -259,15 +206,8 @@ export default function CategoriesManagement() {
       const result = await res.json()
 
       if (res.ok && result.success) {
-        // Show success message with duplicate warning if applicable
-        if (duplicateWarning && formData.name !== editingCategory.name) {
-          alert(`✅ تم تحديث الفئة بنجاح\n\n${duplicateWarning}`)
-        } else {
-          alert("✅ تم تحديث الفئة بنجاح")
-        }
-        
+        alert("تم تحديث الفئة بنجاح")
         setFormData({ name: "", description: "", image: "/placeholder-category.svg" })
-        setDuplicateWarning("")
         setEditingCategory(null)
         setIsEditDialogOpen(false)
         fetchAllData()
@@ -337,16 +277,7 @@ export default function CategoriesManagement() {
       description: category.description,
       image: category.image
     })
-    // Check for duplicates when opening edit dialog
-    const warning = checkDuplicateCategory(category.name)
-    setDuplicateWarning(warning)
     setIsEditDialogOpen(true)
-  }
-
-  const openAddDialog = () => {
-    setFormData({ name: "", description: "", image: "/placeholder-category.svg" })
-    setDuplicateWarning("")
-    setIsAddDialogOpen(true)
   }
 
   // Convert legacy category to official category
@@ -404,7 +335,7 @@ export default function CategoriesManagement() {
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-brand-blue hover:bg-brand-blue/90" onClick={openAddDialog}>
+            <Button className="bg-brand-blue hover:bg-brand-blue/90">
               <Plus className="h-4 w-4 ml-2" />
               إضافة فئة جديدة
             </Button>
@@ -423,7 +354,7 @@ export default function CategoriesManagement() {
                   <Input
                     id="name"
                     value={formData.name}
-                    onChange={(e) => handleFormChange("name", e.target.value)}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="أدخل اسم الفئة"
                     required
                   />
@@ -433,30 +364,16 @@ export default function CategoriesManagement() {
                   <Input
                     id="description"
                     value={formData.description}
-                    onChange={(e) => handleFormChange("description", e.target.value)}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                     placeholder="أدخل وصف الفئة (اختياري)"
                   />
                 </div>
-                
-                {/* Duplicate Warning */}
-                {duplicateWarning && (
-                  <Alert className="bg-yellow-50 border-yellow-200">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    <AlertDescription className="text-yellow-800 text-sm">
-                      {duplicateWarning}
-                    </AlertDescription>
-                  </Alert>
-                )}
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   إلغاء
                 </Button>
-                <Button 
-                  type="submit" 
-                  disabled={saving} 
-                  className="bg-brand-blue hover:bg-brand-blue/90"
-                >
+                <Button type="submit" disabled={saving} className="bg-brand-blue hover:bg-brand-blue/90">
                   {saving ? "جاري الإضافة..." : "إضافة الفئة"}
                 </Button>
               </DialogFooter>
@@ -481,7 +398,7 @@ export default function CategoriesManagement() {
                 <Input
                   id="edit-name"
                   value={formData.name}
-                  onChange={(e) => handleFormChange("name", e.target.value)}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="أدخل اسم الفئة"
                   required
                 />
@@ -491,20 +408,10 @@ export default function CategoriesManagement() {
                 <Input
                   id="edit-description"
                   value={formData.description}
-                  onChange={(e) => handleFormChange("description", e.target.value)}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="أدخل وصف الفئة (اختياري)"
                 />
               </div>
-              
-              {/* Duplicate Warning */}
-              {duplicateWarning && formData.name !== editingCategory?.name && (
-                <Alert className="bg-yellow-50 border-yellow-200">
-                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                  <AlertDescription className="text-yellow-800 text-sm">
-                    {duplicateWarning}
-                  </AlertDescription>
-                </Alert>
-              )}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
@@ -542,7 +449,7 @@ export default function CategoriesManagement() {
             <p className="text-muted-foreground mb-6">لم تقم بإضافة أي فئات بعد</p>
             <Button
               className="bg-brand-blue hover:bg-brand-blue/90"
-              onClick={openAddDialog}
+              onClick={() => setIsAddDialogOpen(true)}
             >
               <Plus className="h-4 w-4 ml-2" />
               إضافة أول فئة
@@ -757,4 +664,3 @@ export default function CategoriesManagement() {
     </div>
   )
 }
-

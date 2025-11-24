@@ -12,18 +12,6 @@ import { Switch } from "@/components/ui/switch";
 import { useRouter } from "next/navigation";
 import { useProducts } from "@/app/admin/context/products";
 
-const categories = [
-  "تصميم جرافيك",
-  "إعلانات وسائل التواصل",
-  "تصميم مواقع ويب",
-  "طباعة ونشر",
-  "التصوير الفوتوغرافي",
-  "الهوية التجارية",
-  "التسويق الرقمي",
-  "طباعة رقمية", 
-  "هدايا اعلانية"
-];
-
 // Fix the quantity state initialization
 type QuantityRow = {
   quantity: string;
@@ -31,12 +19,24 @@ type QuantityRow = {
   total: number;
 };
 
+interface Category {
+  _id: string;
+  name: string;
+  description: string;
+  slug: string;
+  image: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function NewProduct() {
   const router = useRouter();
   const { products, setProducts } = useProducts();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   // Update state for options with prices
   const [sizeOptions, setSizeOptions] = useState<{name: string, priceAddition: string}[]>([
@@ -63,6 +63,9 @@ export default function NewProduct() {
     category: "",
     featured: false,
     status: "مسودة",
+    size: "",
+    side: "",
+    material: ""
   });
 
   // State for tax and total price calculation
@@ -77,24 +80,44 @@ export default function NewProduct() {
     { quantity: "", price: "", total: 0 },
   ]);
 
-  // ✅ تحديث useEffect لحساب السعر مع الإضافات
+  // ✅ Fetch categories from API
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        console.log("🔄 Fetching categories...");
+        const res = await fetch('/api/categories');
+        console.log("📡 Categories response status:", res.status);
+        
+        if (res.ok) {
+          const data = await res.json();
+          console.log("📡 Categories data:", data);
+          setCategories(data.categories || []);
+        } else {
+          console.error('Failed to fetch categories:', res.status);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // ✅ Update useEffect for price calculation
   useEffect(() => {
     const basePrice = parseFloat(formData.price) || 0;
 
-    // نحدد الاختيارات الحالية من state
+    // Get selected options
     const selectedSize = sizeOptions.find(opt => opt.name === formData.size);
     const selectedSide = sideOptions.find(opt => opt.name === formData.side);
     const selectedMaterial = materialOptions.find(opt => opt.name === formData.material);
 
-    // نحسب الإضافات
+    // Calculate additions
     const sizeAddition = selectedSize ? parseFloat(selectedSize.priceAddition) || 0 : 0;
     const sideAddition = selectedSide ? parseFloat(selectedSide.priceAddition) || 0 : 0;
     const materialAddition = selectedMaterial ? parseFloat(selectedMaterial.priceAddition) || 0 : 0;
 
-    // المجموع قبل الضريبة
+    // Calculate totals
     const subtotal = basePrice + sizeAddition + sideAddition + materialAddition;
-
-    // الضريبة
     const taxAmount = subtotal * 0.15;
     const totalAmount = subtotal + taxAmount;
 
@@ -116,12 +139,12 @@ export default function NewProduct() {
     setQuantities(newQuantities);
   };
 
-  // ✨ إضافة صف كمية جديد
+  // ✨ Add new quantity row
   const addQuantityRow = () => {
     setQuantities([...quantities, { quantity: "", price: "", total: 0 }]);
   };
 
-  // ✨ حذف صف كمية
+  // ✨ Remove quantity row
   const removeQuantityRow = (index: number) => {
     if (quantities.length > 1) {
       setQuantities(quantities.filter((_, i) => i !== index));
@@ -274,9 +297,21 @@ export default function NewProduct() {
         body: productFormData,
       });
 
-      const result = await res.json();
+      console.log("📡 Response status:", res.status);
+      
+      // Handle non-JSON responses
+      const text = await res.text();
+      console.log("📡 Response text:", text);
+      
+      let result;
+      try {
+        result = text ? JSON.parse(text) : {};
+      } catch (parseError) {
+        console.error("❌ Failed to parse response as JSON:", parseError);
+        result = { error: "Invalid response from server" };
+      }
 
-      if (res.ok) {
+      if (res.ok && result.success) {
         alert("تم حفظ المنتج بنجاح!");
         router.push("/admin/products");
       } else {
@@ -291,11 +326,11 @@ export default function NewProduct() {
     }
   };
 
- const calculateTotal = (price: number, quantity: number) => {
-  const subtotal = price; // don't multiply by quantity
-  const tax = subtotal * 0.15;
-  return subtotal + tax;
-};
+  const calculateTotal = (price: number, quantity: number) => {
+    const subtotal = price; // don't multiply by quantity
+    const tax = subtotal * 0.15;
+    return subtotal + tax;
+  };
 
   return (
     <div className="p-8">
@@ -364,8 +399,8 @@ export default function NewProduct() {
                     >
                       <option value="">اختر الفئة</option>
                       {categories.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
+                        <option key={category._id} value={category.name}>
+                          {category.name}
                         </option>
                       ))}
                     </select>
@@ -397,14 +432,14 @@ export default function NewProduct() {
             <Card>
               <CardHeader>
                 <CardTitle>خيارات الكمية والأسعار</CardTitle>
-                <p className="text-sm text-muted-foreground ">
+                <p className="text-sm text-muted-foreground">
                   أضف خيارات كمية مختلفة مع أسعارها (مثال: 100 نسخة بسعر 1500 ريال، 500 نسخة بسعر 6000 ريال)
                 </p>
               </CardHeader>
-              <CardContent >
-                <div className="space-y-4 ">
+              <CardContent>
+                <div className="space-y-4">
                   {quantities.map((q, index) => (
-                    <div key={index} className="flex items-center gap-3 p-4 border rounded-lg bg-gray-800">
+                    <div key={index} className="flex items-center gap-3 p-4 border rounded-lg bg-gray-50">
                       <div className="flex-1">
                         <Label htmlFor={`quantity-${index}`}>الكمية *</Label>
                         <Input
@@ -723,7 +758,7 @@ export default function NewProduct() {
                   
                   {/* Show quantity options in preview */}
                   {quantities.some(q => q.quantity && q.price) && (
-                    <div className="mt-3 ">
+                    <div className="mt-3">
                       <h4 className="text-sm font-medium mb-2">خيارات الكمية:</h4>
                       <div className="space-y-1">
                         {quantities

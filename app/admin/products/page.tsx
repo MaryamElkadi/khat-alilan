@@ -72,20 +72,34 @@ export default function ProductsManagement() {
   )
 
   const handleDelete = async (id: string) => {
+    console.log("🔍 Delete clicked for ID:", id)
+    
     if (confirm("هل أنت متأكد من حذف هذا المنتج؟")) {
       try {
-        const res = await fetch(`/api/products?id=${id}`, { 
+        console.log("🔄 Sending DELETE request...")
+        
+        // ✅ Use path parameter instead of query string
+        const res = await fetch(`/api/products/${id}`, { 
           method: "DELETE" 
         })
         
-        if (res.ok) {
-          setProducts(safeProducts.filter((p) => p._id !== id))
+        console.log("📡 Response status:", res.status)
+        
+        const result = await res.json()
+        console.log("📡 Response data:", result)
+        
+        if (res.ok && result.success) {
+          console.log("✅ Delete successful, updating state...")
+          setProducts(prevProducts => {
+            if (!Array.isArray(prevProducts)) return []
+            return prevProducts.filter((p) => p._id !== id)
+          })
         } else {
-          console.error("فشل في حذف المنتج")
-          alert("فشل في حذف المنتج")
+          console.error("❌ Delete failed:", result)
+          alert(result.error || "فشل في حذف المنتج")
         }
       } catch (error) {
-        console.error("خطأ في الاتصال", error)
+        console.error("❌ Connection error:", error)
         alert("حدث خطأ أثناء حذف المنتج")
       }
     }
@@ -96,7 +110,9 @@ export default function ProductsManagement() {
   }
 
   const handleEdit = (id: string) => {
+    // Use query parameter approach for edit
     router.push(`/admin/products/edit/${id}`)
+    // Or if you have dynamic route: router.push(`/admin/products/${id}/edit`)
   }
 
   // Helper function to get image URL safely

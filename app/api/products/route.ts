@@ -1,4 +1,3 @@
-// app/api/products/route.ts
 import { NextResponse } from "next/server"
 import { connectDB } from "@/lib/db"
 import Product from "@/models/Product"
@@ -8,7 +7,6 @@ import { put } from '@vercel/blob';
 async function uploadToBlobFallback(file: File): Promise<string> {
   console.log("📝 Using fallback storage for file:", file.name);
   
-  // Convert file to base64 for simple storage
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
   const base64 = buffer.toString('base64');
@@ -100,7 +98,6 @@ export async function POST(req: Request) {
         try {
           let imageUrl: string;
           
-          // Try Vercel Blob first
           if (process.env.BLOB_READ_WRITE_TOKEN) {
             console.log(`🔄 Uploading ${file.name} to Vercel Blob...`);
             const blob = await put(`products/${Date.now()}-${file.name}`, file, {
@@ -109,7 +106,6 @@ export async function POST(req: Request) {
             imageUrl = blob.url;
             console.log("✅ Uploaded to Vercel Blob:", imageUrl);
           } else {
-            // Fallback for development
             console.log(`🔄 Using fallback storage for ${file.name}`);
             imageUrl = await uploadToBlobFallback(file);
             console.log("⚠️ Using fallback storage");
@@ -119,7 +115,6 @@ export async function POST(req: Request) {
           
         } catch (err: any) {
           console.error("❌ Upload error:", err);
-          // Continue with other images even if one fails
           images.push("/placeholder.svg");
         }
       }
@@ -187,7 +182,6 @@ export async function POST(req: Request) {
   } catch (err: any) {
     console.error("❌ Error in POST /api/products:", err);
     
-    // MongoDB validation errors
     if (err.name === 'ValidationError') {
       const errorDetails = Object.values(err.errors).map((e: any) => ({
         field: e.path,
@@ -199,7 +193,6 @@ export async function POST(req: Request) {
       );
     }
     
-    // MongoDB duplicate key errors
     if (err.code === 11000) {
       return NextResponse.json(
         { success: false, error: "منتج بنفس الاسم موجود مسبقاً" }, 
@@ -207,7 +200,6 @@ export async function POST(req: Request) {
       );
     }
     
-    // General server error
     return NextResponse.json(
       { success: false, error: "فشل في حفظ المنتج", message: err.message }, 
       { status: 500 }
@@ -282,48 +274,5 @@ export async function GET(req: Request) {
       { success: false, error: "فشل في جلب المنتجات", message: err.message }, 
       { status: 500 }
     );
-  }
-}
-// Add this to your existing products/route.ts file
-export async function DELETE(req: Request) {
-  try {
-    await connectDB();
-    
-    // Get ID from query parameters
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
-    
-    console.log("🗑️ Attempting to delete product with ID:", id);
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, error: "معرف المنتج مطلوب" }, 
-        { status: 400 }
-      );
-    }
-
-    const deletedProduct = await Product.findByIdAndDelete(id);
-
-    if (!deletedProduct) {
-      return NextResponse.json(
-        { success: false, error: "المنتج غير موجود" }, 
-        { status: 404 }
-      );
-    }
-
-    console.log("✅ Product deleted successfully:", id);
-
-    return NextResponse.json({ 
-      success: true,
-      message: "تم حذف المنتج بنجاح" 
-    }, { status: 200 });
-
-  } catch (error: any) {
-    console.error("❌ DELETE product error:", error);
-    return NextResponse.json({ 
-      success: false,
-      error: "فشل في حذف المنتج",
-      details: error.message 
-    }, { status: 500 });
   }
 }

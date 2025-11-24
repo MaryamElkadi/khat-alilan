@@ -143,20 +143,7 @@ export default function AdminDashboard() {
       try {
         const res = await fetch("/api/dashboard"); // replace with your DB API
         const data = await res.json();
-        
-        // 🔑 نفترض أن الـ API يرجع كائن بيانات الإحصائيات الحالية والسابقة
-        // يجب أن يكون هيكل البيانات من الخادم:
-        // {
-        //   stats: { sales: 15000, newOrders: 12, ... },
-        //   previousStats: { sales: 12000, newOrders: 10, ... },
-        //   salesData: [
-        //     { month: 1, value: 12000, year: 2024 },
-        //     { month: 2, value: 15000, year: 2024 },
-        //     ...
-        //   ],
-        //   orders: [...]
-        // }
-        
+    
         setStats(data?.stats || {});
         setPreviousStats(data?.previousStats || {});
         setSalesData(data?.salesData || []); // بيانات الرسم البياني

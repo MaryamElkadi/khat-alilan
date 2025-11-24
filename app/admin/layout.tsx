@@ -21,7 +21,9 @@ const sidebarItems = [
   { icon: FileText, label: "أعمالنا", href: "/admin/portfolio" },
   { icon: FileText, label: "التواصل", href: "/admin/contact" },
   { icon: Settings, label: "الإعدادات", href: "/admin/settings" },
-{ icon: Settings, label: "أعمال الظاهرة", href: "/admin/works-manager"},]
+{ icon: Settings, label: "أعمال الظاهرة", href: "/admin/works-manager"},
+{icon: Settings, label: "الفئات", href: "/admin/categories"},
+]
 
 export default function AdminLayout({
   children,
