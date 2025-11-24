@@ -663,4 +663,6 @@ export default function CategoriesManagement() {
       </div>
     </div>
   )
+
+  
 }

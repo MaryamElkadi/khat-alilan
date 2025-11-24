@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { motion, AnimatePresence } from "framer-motion"
 import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,15 +10,30 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useCart } from "@/lib/CartProvider"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 
 interface CartDrawerProps {
   children: React.ReactNode
 }
 
 export function CartDrawer({ children }: CartDrawerProps) {
-  const { items, total, itemCount, updateQuantity, removeItem } = useCart()
+  const { items, updateQuantity, removeItem, loading } = useCart()
   const [isOpen, setIsOpen] = useState(false)
+
+  // Calculate dynamic totals based on current quantities
+  const { itemCount, subtotal, taxAmount, finalTotal } = useMemo(() => {
+    const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
+    const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    const taxAmount = subtotal * 0.15
+    const finalTotal = subtotal + taxAmount
+
+    return {
+      itemCount,
+      subtotal,
+      taxAmount,
+      finalTotal
+    }
+  }, [items]) // Recalculate when items or quantities change
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -30,8 +44,14 @@ export function CartDrawer({ children }: CartDrawerProps) {
             <SheetTitle className="text-xl font-bold text-right">سلة التسوق ({itemCount})</SheetTitle>
           </SheetHeader>
 
-          {!items || items.length === 0 ? (
-
+          {loading ? (
+            <div className="flex-1 flex items-center justify-center p-6">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-sm text-muted-foreground">جاري تحميل السلة...</p>
+              </div>
+            </div>
+          ) : !items || items.length === 0 ? (
             <div className="flex-1 flex items-center justify-center p-6">
               <div className="text-center">
                 <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
@@ -39,9 +59,11 @@ export function CartDrawer({ children }: CartDrawerProps) {
                 </div>
                 <h3 className="font-semibold mb-2">السلة فارغة</h3>
                 <p className="text-sm text-muted-foreground mb-4">ابدأ بإضافة المنتجات إلى سلتك</p>
-                <Button onClick={() => setIsOpen(false)} variant="outline" size="sm">
-                  تصفح المنتجات
-                </Button>
+                <Link href="/products" onClick={() => setIsOpen(false)}>
+                  <Button variant="outline" size="sm">
+                    تصفح المنتجات
+                  </Button>
+                </Link>
               </div>
             </div>
           ) : (
@@ -51,7 +73,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
                   <AnimatePresence>
                     {items.map((item, index) => (
                       <motion.div
-                        key={item.id}
+                        key={item._id || `${item.productId}-${index}`}
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -20 }}
@@ -62,20 +84,54 @@ export function CartDrawer({ children }: CartDrawerProps) {
                         <div className="w-16 h-16 rounded-md overflow-hidden flex-shrink-0">
                           <img
                             src={item.image || "/placeholder.svg"}
-                            alt={item.title}
+                            alt={item.name}
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = "/placeholder.svg"
+                            }}
                           />
                         </div>
 
                         {/* Product Details */}
                         <div className="flex-1 min-w-0">
-                          <Badge variant="outline" className="mb-1 text-xs">
-                            {item.category}
-                          </Badge>
-                          <h4 className="font-semibold text-sm leading-tight mb-1 truncate">{item.title}</h4>
-                          <div className="text-sm font-bold text-primary mb-2">
-                            {(item.price * item.quantity).toLocaleString()} ر.س
+                          {/* Category Badge */}
+                          {item.selectedOptions?.category && (
+                            <Badge variant="outline" className="mb-1 text-xs">
+                              {item.selectedOptions.category}
+                            </Badge>
+                          )}
+                          
+                          <h4 className="font-semibold text-sm leading-tight mb-1 truncate">
+                            {item.name || "منتج"}
+                          </h4>
+                          
+                          {/* Price per unit */}
+                          <div className="text-xs text-muted-foreground mb-1">
+                            سعر الوحدة: {item.price.toFixed(2)} ر.س
                           </div>
+
+                          {/* Item total */}
+                          <div className="text-sm font-bold text-primary mb-2">
+                            {(item.price * item.quantity).toFixed(2)} ر.س
+                          </div>
+
+                          {/* Selected Options */}
+                          {item.selectedOptions && (
+                            <div className="text-xs text-muted-foreground mb-2 space-y-1">
+                              {item.selectedOptions.quantity && (
+                                <div>الكمية: {item.selectedOptions.quantity} نسخة</div>
+                              )}
+                              {item.selectedOptions.size && (
+                                <div>المقاس: {item.selectedOptions.size}</div>
+                              )}
+                              {item.selectedOptions.side && (
+                                <div>الوجه: {item.selectedOptions.side}</div>
+                              )}
+                              {item.selectedOptions.material && (
+                                <div>المادة: {item.selectedOptions.material}</div>
+                              )}
+                            </div>
+                          )}
 
                           {/* Quantity Controls */}
                           <div className="flex items-center justify-between">
@@ -83,7 +139,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                onClick={() => updateQuantity(item.productId, Math.max(1, item.quantity - 1))}
                                 disabled={item.quantity <= 1}
                                 className="h-6 w-6"
                               >
@@ -93,7 +149,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                                 className="h-6 w-6"
                               >
                                 <Plus className="h-3 w-3" />
@@ -103,7 +159,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => removeItem(item.id)}
+                              onClick={() => removeItem(item.productId)}
                               className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
                             >
                               <Trash2 className="h-3 w-3" />
@@ -118,10 +174,32 @@ export function CartDrawer({ children }: CartDrawerProps) {
 
               {/* Cart Footer */}
               <div className="border-t border-border p-6 space-y-4">
-                {/* Subtotal */}
+                {/* Price Breakdown */}
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>عدد المنتجات:</span>
+                    <span>{items.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>إجمالي القطع:</span>
+                    <span>{itemCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>المجموع الفرعي:</span>
+                    <span>{subtotal.toFixed(2)} ر.س</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>ضريبة القيمة المضافة (15%):</span>
+                    <span>{taxAmount.toFixed(2)} ر.س</span>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Total */}
                 <div className="flex justify-between text-lg font-semibold">
-                  <span>المجموع الفرعي</span>
-                  <span className="text-primary">{total.toLocaleString()} ر.س</span>
+                  <span>المجموع الكلي</span>
+                  <span className="text-primary">{finalTotal.toFixed(2)} ر.س</span>
                 </div>
 
                 <Separator />
@@ -130,7 +208,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
                 <div className="space-y-2">
                   <Link href="/cart" onClick={() => setIsOpen(false)}>
                     <Button variant="outline" size="lg" className="w-full bg-transparent">
-                      عرض السلة
+                      عرض السلة الكاملة
                     </Button>
                   </Link>
                   <Link href="/checkout" onClick={() => setIsOpen(false)}>

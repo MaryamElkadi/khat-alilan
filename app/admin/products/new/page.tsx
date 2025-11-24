@@ -30,6 +30,12 @@ interface Category {
   updatedAt: string;
 }
 
+interface ProductCategory {
+  _id: string;
+  name: string;
+  // Add other product category fields as needed
+}
+
 export default function NewProduct() {
   const router = useRouter();
   const { products, setProducts } = useProducts();
@@ -37,6 +43,8 @@ export default function NewProduct() {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<{id: string, name: string}[]>([]);
 
   // Update state for options with prices
   const [sizeOptions, setSizeOptions] = useState<{name: string, priceAddition: string}[]>([
@@ -80,26 +88,89 @@ export default function NewProduct() {
     { quantity: "", price: "", total: 0 },
   ]);
 
-  // ✅ Fetch categories from API
+  // ✅ Fetch categories from both APIs
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchAllCategories = async () => {
       try {
-        console.log("🔄 Fetching categories...");
-        const res = await fetch('/api/categories');
-        console.log("📡 Categories response status:", res.status);
+        console.log("🔄 Fetching all categories...");
         
-        if (res.ok) {
-          const data = await res.json();
-          console.log("📡 Categories data:", data);
-          setCategories(data.categories || []);
-        } else {
-          console.error('Failed to fetch categories:', res.status);
+        const allCategories: {id: string, name: string}[] = [];
+
+        // Fetch from categories API
+        try {
+          const categoriesRes = await fetch('/api/categories');
+          console.log("📡 Categories response status:", categoriesRes.status);
+          
+          if (categoriesRes.ok) {
+            const categoriesData = await categoriesRes.json();
+            console.log("📡 Categories data:", categoriesData);
+            
+            const categoriesList = categoriesData.categories || categoriesData.data || [];
+            setCategories(categoriesList);
+            
+            // Add to available categories
+            categoriesList.forEach((category: Category) => {
+              if (category.name && category.name.trim() !== "") {
+                allCategories.push({
+                  id: category._id || `cat-${category.name}`,
+                  name: category.name
+                });
+              }
+            });
+          } else {
+            console.error('Failed to fetch categories:', categoriesRes.status);
+          }
+        } catch (categoriesError) {
+          console.error('Error fetching categories:', categoriesError);
         }
+
+        // Fetch from products API to get existing product categories
+        try {
+          const productsRes = await fetch('/api/products');
+          console.log("📡 Products response status:", productsRes.status);
+
+          if (productsRes.ok) {
+            const productsData = await productsRes.json();
+            console.log("📡 Products data for categories:", productsData);
+            
+            const productsList = productsData.products || productsData.data || productsData || [];
+            setProductCategories(productsList);
+            
+            // Extract unique categories from existing products
+            const uniqueProductCategories = new Set<string>();
+            
+            productsList.forEach((product: any) => {
+              if (product.category && product.category.trim() !== "") {
+                uniqueProductCategories.add(product.category);
+              }
+            });
+
+            // Add unique product categories to available categories
+            uniqueProductCategories.forEach(categoryName => {
+              // Check if category already exists to avoid duplicates
+              if (!allCategories.some(cat => cat.name === categoryName)) {
+                allCategories.push({
+                  id: `product-${Date.now()}-${categoryName}`,
+                  name: categoryName
+                });
+              }
+            });
+          } else {
+            console.error('Failed to fetch products for categories:', productsRes.status);
+          }
+        } catch (productsError) {
+          console.error('Error fetching products for categories:', productsError);
+        }
+
+        console.log("📋 All available categories:", allCategories);
+        setAvailableCategories(allCategories);
+
       } catch (error) {
         console.error('Error fetching categories:', error);
       }
     };
-    fetchCategories();
+    
+    fetchAllCategories();
   }, []);
 
   // ✅ Update useEffect for price calculation
@@ -398,12 +469,17 @@ export default function NewProduct() {
                       required
                     >
                       <option value="">اختر الفئة</option>
-                      {categories.map((category) => (
-                        <option key={category._id} value={category.name}>
+                      {availableCategories.map((category) => (
+                        <option key={category.id} value={category.name}>
                           {category.name}
                         </option>
                       ))}
                     </select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {availableCategories.length > 0 
+                        ? `متوفر ${availableCategories.length} فئة` 
+                        : 'جاري تحميل الفئات...'}
+                    </p>
                   </div>
                 </div>
 
@@ -437,12 +513,12 @@ export default function NewProduct() {
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-4 text-black">
                   {quantities.map((q, index) => (
                     <div key={index} className="flex items-center gap-3 p-4 border rounded-lg bg-gray-50">
                       <div className="flex-1">
                         <Label htmlFor={`quantity-${index}`}>الكمية *</Label>
-                        <Input
+                        <Input className="border-black"
                           id={`quantity-${index}`}
                           type="number"
                           placeholder="مثال: 100"
@@ -453,7 +529,7 @@ export default function NewProduct() {
                       </div>
                       <div className="flex-1">
                         <Label htmlFor={`price-${index}`}>السعر (ر.س) *</Label>
-                        <Input
+                        <Input className="border-black"
                           id={`price-${index}`}
                           type="number"
                           placeholder="مثال: 1500"

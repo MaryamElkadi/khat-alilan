@@ -1,760 +1,356 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Plus, Search, Edit, Trash2, Tag, Eye, EyeOff, Package, AlertTriangle } from "lucide-react"
+import { Eye } from "lucide-react"
+import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import { useCart } from "@/lib/CartProvider"
+import { useRouter } from "next/navigation" 
+import type { Product } from "@/lib/types"
 
+// Define Category type
 interface Category {
-  _id: string
-  name: string
-  description: string
-  slug: string
-  image: string
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
+  _id: string;
+  name: string;
+  description: string;
+  slug: string;
+  image: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface Product {
-  _id: string
-  title: string
-  description: string
-  price: number
-  category: string
-  featured: boolean
-  status: string
-  image: string | string[]
-  quantityOptions?: any[]
-  sizeOptions?: any[]
-  sideOptions?: any[]
-  materialOptions?: any[]
-  createdAt: string
-  updatedAt: string
-}
-
-interface LegacyCategory {
-  name: string
-  type: "legacy"
-  productCount: number
-}
-
-export default function CategoriesManagement() {
-  const [categories, setCategories] = useState<Category[]>([])
-  const [legacyCategories, setLegacyCategories] = useState<LegacyCategory[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
+export default function ProductsPage() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<string[]>(["جميع الفئات"])
   const [loading, setLoading] = useState(true)
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    image: "/placeholder-category.svg"
-  })
-  const [saving, setSaving] = useState(false)
-  const [duplicateWarning, setDuplicateWarning] = useState("")
+  const [error, setError] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("جميع الفئات")
+  const { addItem } = useCart()
+  const router = useRouter() 
 
+  // Fetch products and categories
   useEffect(() => {
-    fetchAllData()
-  }, [])
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        setError("")
 
-  const fetchAllData = async () => {
-    try {
-      setLoading(true)
-      await Promise.all([
-        fetchCategories(),
-        fetchLegacyCategories()
-      ])
-    } catch (error) {
-      console.error("Error fetching data:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchCategories = async () => {
-    try {
-      const res = await fetch("/api/categories")
-      if (res.ok) {
-        const data = await res.json()
-        setCategories(data.categories || [])
-      } else {
-        console.error("فشل في جلب الفئات الرسمية")
-      }
-    } catch (error) {
-      console.error("خطأ في الاتصال", error)
-    }
-  }
-
-  const fetchLegacyCategories = async () => {
-    try {
-      console.log("🔄 Fetching products for legacy categories...")
-      const res = await fetch('/api/products?limit=1000')
-      
-      if (res.ok) {
-        const data = await res.json()
-        console.log("📡 Products data for legacy categories:", data)
-        
-        // Extract unique categories from products and count products per category
-        const categoryCountMap = new Map<string, number>()
-        
-        let products: Product[] = []
-        if (data.products && Array.isArray(data.products)) {
-          products = data.products
-        } else if (Array.isArray(data)) {
-          products = data
+        // Fetch products
+        const productsRes = await fetch("/api/products")
+        if (!productsRes.ok) {
+          throw new Error(`Failed to fetch products: ${productsRes.status}`)
         }
+        
+        const productsData = await productsRes.json()
+        console.log("Products API Response:", productsData)
+        
+        // Handle different response structures for products
+        let productsArray: Product[] = []
+        
+        if (Array.isArray(productsData)) {
+          productsArray = productsData
+        } else if (productsData.products && Array.isArray(productsData.products)) {
+          productsArray = productsData.products
+        } else if (productsData.success && Array.isArray(productsData.products)) {
+          productsArray = productsData.products
+        } else if (productsData.data && Array.isArray(productsData.data)) {
+          productsArray = productsData.data
+        } else {
+          console.error("Unexpected products API response format:", productsData)
+          throw new Error("Unexpected products API response format")
+        }
+        
+        // Ensure all products have required fields
+        const validatedProducts = productsArray.map(product => ({
+          _id: product._id || "",
+          title: product.title || "بدون عنوان",
+          description: product.description || "لا يوجد وصف",
+          price: Number(product.price) || 0,
+          category: product.category || "غير مصنف",
+          featured: Boolean(product.featured),
+          status: product.status || "نشط",
+          image: Array.isArray(product.image) ? product.image : 
+                 typeof product.image === 'string' ? [product.image] : 
+                 ["/placeholder.svg"],
+          sizeOptions: Array.isArray(product.sizeOptions) ? product.sizeOptions : [],
+          sideOptions: Array.isArray(product.sideOptions) ? product.sideOptions : [],
+          materialOptions: Array.isArray(product.materialOptions) ? product.materialOptions : [],
+          quantityOptions: Array.isArray(product.quantityOptions) ? product.quantityOptions : [],
+          createdAt: product.createdAt || new Date().toISOString(),
+          updatedAt: product.updatedAt || new Date().toISOString()
+        }))
+        
+        setProducts(validatedProducts)
 
-        products.forEach((product: Product) => {
-          if (product.category && product.category.trim() !== "") {
-            const categoryName = product.category.trim()
-            categoryCountMap.set(categoryName, (categoryCountMap.get(categoryName) || 0) + 1)
+        // Extract categories from products
+        const productCategories = new Set<string>()
+        validatedProducts.forEach(product => {
+          if (product.category && product.category.trim() !== "" && product.category !== "غير مصنف") {
+            productCategories.add(product.category)
           }
         })
 
-        // Convert to array and sort by product count (descending)
-        const legacyCats = Array.from(categoryCountMap.entries())
-          .map(([name, productCount]) => ({
-            name,
-            type: "legacy" as const,
-            productCount
-          }))
-          .sort((a, b) => b.productCount - a.productCount)
-
-        console.log("📊 Legacy categories found:", legacyCats)
-        setLegacyCategories(legacyCats)
-      } else {
-        console.error('Failed to fetch products for legacy categories')
-      }
-    } catch (error) {
-      console.error('Error fetching legacy categories:', error)
-    }
-  }
-
-  // Check for duplicate category names
-  const checkDuplicateCategory = (name: string): string => {
-    const trimmedName = name.trim()
-    
-    // Check in official categories
-    const existingOfficial = categories.find(cat => 
-      cat.name.toLowerCase() === trimmedName.toLowerCase()
-    )
-    
-    if (existingOfficial) {
-      return `⚠️ فئة باسم "${trimmedName}" موجودة بالفعل في الفئات الرسمية`
-    }
-    
-    // Check in legacy categories
-    const existingLegacy = legacyCategories.find(cat => 
-      cat.name.toLowerCase() === trimmedName.toLowerCase()
-    )
-    
-    if (existingLegacy) {
-      return `⚠️ فئة باسم "${trimmedName}" موجودة بالفعل في فئات المنتجات (${existingLegacy.productCount} منتج)`
-    }
-    
-    return ""
-  }
-
-  // Handle form input changes
-  const handleFormChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-    
-    // Check for duplicates when name changes
-    if (field === "name") {
-      const warning = checkDuplicateCategory(value)
-      setDuplicateWarning(warning)
-    }
-  }
-
-  // Filter categories based on search term
-  const filteredOfficialCategories = categories.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    category.description.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  const filteredLegacyCategories = legacyCategories.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  const hasSearchResults = filteredOfficialCategories.length > 0 || filteredLegacyCategories.length > 0
-
-  const handleAddCategory = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!formData.name.trim()) {
-      alert("يرجى إدخال اسم الفئة")
-      return
-    }
-
-    setSaving(true)
-
-    try {
-      const res = await fetch("/api/categories", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      })
-
-      const result = await res.json()
-
-      if (res.ok && result.success) {
-        // Show success message with duplicate warning if applicable
-        if (duplicateWarning) {
-          alert(`✅ تم إضافة الفئة بنجاح\n\n${duplicateWarning}`)
-        } else {
-          alert("✅ تم إضافة الفئة بنجاح")
+        // Fetch categories from categories API
+        try {
+          const categoriesRes = await fetch('/api/categories')
+          if (categoriesRes.ok) {
+            const categoriesData = await categoriesRes.json()
+            console.log("Categories API Response:", categoriesData)
+            
+            const categoriesList = categoriesData.categories || categoriesData.data || []
+            
+            // Add categories from categories API
+            categoriesList.forEach((category: Category) => {
+              if (category.name && category.name.trim() !== "" && category.isActive !== false) {
+                productCategories.add(category.name)
+              }
+            })
+          } else {
+            console.warn('Failed to fetch categories API, using only product categories')
+          }
+        } catch (categoriesError) {
+          console.warn('Error fetching categories API, using only product categories:', categoriesError)
         }
-        
-        // Reset form and close dialog
-        setFormData({ name: "", description: "", image: "/placeholder-category.svg" })
-        setDuplicateWarning("")
-        setIsAddDialogOpen(false)
-        fetchAllData()
-      } else {
-        // Handle API errors (like validation errors from server)
-        alert(result.error || "فشل في إضافة الفئة")
-      }
-    } catch (error) {
-      console.error("Error adding category:", error)
-      alert("حدث خطأ أثناء إضافة الفئة")
-    } finally {
-      setSaving(false)
-    }
-  }
 
-  const handleEditCategory = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!editingCategory) return
+        // Convert Set to array and sort
+        const allCategories = ["جميع الفئات", ...Array.from(productCategories).sort()]
+        setCategories(allCategories)
 
-    setSaving(true)
+        console.log("Final categories list:", allCategories)
 
-    try {
-      const res = await fetch(`/api/categories/${editingCategory._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      })
-
-      const result = await res.json()
-
-      if (res.ok && result.success) {
-        // Show success message with duplicate warning if applicable
-        if (duplicateWarning && formData.name !== editingCategory.name) {
-          alert(`✅ تم تحديث الفئة بنجاح\n\n${duplicateWarning}`)
-        } else {
-          alert("✅ تم تحديث الفئة بنجاح")
-        }
-        
-        setFormData({ name: "", description: "", image: "/placeholder-category.svg" })
-        setDuplicateWarning("")
-        setEditingCategory(null)
-        setIsEditDialogOpen(false)
-        fetchAllData()
-      } else {
-        alert(result.error || "فشل في تحديث الفئة")
-      }
-    } catch (error) {
-      console.error("Error updating category:", error)
-      alert("حدث خطأ أثناء تحديث الفئة")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDeleteCategory = async (id: string) => {
-    if (confirm("هل أنت متأكد من حذف هذه الفئة؟")) {
-      try {
-        const res = await fetch(`/api/categories/${id}`, {
-          method: "DELETE"
-        })
-
-        const result = await res.json()
-
-        if (res.ok && result.success) {
-          alert("تم حذف الفئة بنجاح")
-          fetchAllData()
-        } else {
-          alert(result.error || "فشل في حذف الفئة")
-        }
-      } catch (error) {
-        console.error("Error deleting category:", error)
-        alert("حدث خطأ أثناء حذف الفئة")
-      }
-    }
-  }
-
-  const handleToggleStatus = async (category: Category) => {
-    try {
-      const res = await fetch(`/api/categories/${category._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...category,
-          isActive: !category.isActive
-        }),
-      })
-
-      const result = await res.json()
-
-      if (res.ok && result.success) {
-        fetchAllData()
-      } else {
-        alert(result.error || "فشل في تغيير حالة الفئة")
-      }
-    } catch (error) {
-      console.error("Error toggling category status:", error)
-      alert("حدث خطأ أثناء تغيير حالة الفئة")
-    }
-  }
-
-  const openEditDialog = (category: Category) => {
-    setEditingCategory(category)
-    setFormData({
-      name: category.name,
-      description: category.description,
-      image: category.image
-    })
-    // Check for duplicates when opening edit dialog
-    const warning = checkDuplicateCategory(category.name)
-    setDuplicateWarning(warning)
-    setIsEditDialogOpen(true)
-  }
-
-  const openAddDialog = () => {
-    setFormData({ name: "", description: "", image: "/placeholder-category.svg" })
-    setDuplicateWarning("")
-    setIsAddDialogOpen(true)
-  }
-
-  // Convert legacy category to official category
-  const handleConvertLegacyCategory = async (legacyCategory: LegacyCategory) => {
-    if (confirm(`هل تريد تحويل الفئة "${legacyCategory.name}" إلى فئة رسمية؟`)) {
-      setSaving(true)
-      try {
-        const res = await fetch("/api/categories", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: legacyCategory.name,
-            description: `تم تحويل هذه الفئة تلقائياً من المنتجات (${legacyCategory.productCount} منتج)`,
-            image: "/placeholder-category.svg"
-          }),
-        })
-
-        const result = await res.json()
-
-        if (res.ok && result.success) {
-          alert("تم تحويل الفئة بنجاح")
-          fetchAllData()
-        } else {
-          alert(result.error || "فشل في تحويل الفئة")
-        }
-      } catch (error) {
-        console.error("Error converting category:", error)
-        alert("حدث خطأ أثناء تحويل الفئة")
+      } catch (err: any) {
+        console.error("Fetch error:", err)
+        setError(err.message || "حدث خطأ في تحميل البيانات")
+        setProducts([])
       } finally {
-        setSaving(false)
+        setLoading(false)
       }
+    }
+
+    fetchData()
+  }, [])
+
+  // Safe filtering - always work with array
+  const safeProducts = Array.isArray(products) ? products : []
+  const filteredProducts = safeProducts.filter((product) => {
+    const matchesCategory = selectedCategory === "جميع الفئات" || product.category === selectedCategory
+    return matchesCategory
+  })
+
+  const handleAddToCart = (product: Product) => {
+    const productWithTax = {
+      ...product,
+      price: Number((product.price * 1.15).toFixed(2)), 
+    }
+    addItem(productWithTax)
+  }
+
+  const viewProductDetails = (productId: string) => {
+    if (productId) {
+      router.push(`/products/${productId}`)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="p-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-lg">جاري تحميل الفئات...</div>
-        </div>
-      </div>
-    )
+  // Safe image URL getter
+  const getProductImage = (product: Product) => {
+    if (!product.image) return "/placeholder.svg"
+    
+    if (Array.isArray(product.image)) {
+      return product.image[0] || "/placeholder.svg"
+    }
+    
+    return product.image || "/placeholder.svg"
   }
-
-  const totalCategories = categories.length + legacyCategories.length
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-brand-blue">إدارة الفئات</h1>
-          <p className="text-muted-foreground mt-1">إدارة وتنظيم فئات المنتجات</p>
-        </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-brand-blue hover:bg-brand-blue/90" onClick={openAddDialog}>
-              <Plus className="h-4 w-4 ml-2" />
-              إضافة فئة جديدة
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>إضافة فئة جديدة</DialogTitle>
-              <DialogDescription>
-                أدخل معلومات الفئة الجديدة
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleAddCategory}>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">اسم الفئة *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => handleFormChange("name", e.target.value)}
-                    placeholder="أدخل اسم الفئة"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">وصف الفئة</Label>
-                  <Input
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => handleFormChange("description", e.target.value)}
-                    placeholder="أدخل وصف الفئة (اختياري)"
-                  />
-                </div>
-                
-                {/* Duplicate Warning */}
-                {duplicateWarning && (
-                  <Alert className="bg-yellow-50 border-yellow-200">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    <AlertDescription className="text-yellow-800 text-sm">
-                      {duplicateWarning}
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  إلغاء
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={saving} 
-                  className="bg-brand-blue hover:bg-brand-blue/90"
-                >
-                  {saving ? "جاري الإضافة..." : "إضافة الفئة"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Edit Category Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>تعديل الفئة</DialogTitle>
-            <DialogDescription>
-              تعديل معلومات الفئة
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleEditCategory}>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">اسم الفئة *</Label>
-                <Input
-                  id="edit-name"
-                  value={formData.name}
-                  onChange={(e) => handleFormChange("name", e.target.value)}
-                  placeholder="أدخل اسم الفئة"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-description">وصف الفئة</Label>
-                <Input
-                  id="edit-description"
-                  value={formData.description}
-                  onChange={(e) => handleFormChange("description", e.target.value)}
-                  placeholder="أدخل وصف الفئة (اختياري)"
-                />
-              </div>
-              
-              {/* Duplicate Warning */}
-              {duplicateWarning && formData.name !== editingCategory?.name && (
-                <Alert className="bg-yellow-50 border-yellow-200">
-                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                  <AlertDescription className="text-yellow-800 text-sm">
-                    {duplicateWarning}
-                  </AlertDescription>
-                </Alert>
-              )}
+    <div className="min-h-screen bg-black text-white">
+      <main className="pt-8">
+        
+        {/* ✅ Category Filter Section */}
+        <section className="py-6 border-b border-border">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold text-brand-blue mb-2">تصفح منتجاتنا</h2>
+              <p className="text-gray-400">اختر من بين فئاتنا المختلفة</p>
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                إلغاء
-              </Button>
-              <Button type="submit" disabled={saving} className="bg-brand-blue hover:bg-brand-blue/90">
-                {saving ? "جاري التحديث..." : "تحديث الفئة"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Card className="mb-6">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="البحث في الفئات..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pr-10"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {totalCategories === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Tag className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">لا توجد فئات</h3>
-            <p className="text-muted-foreground mb-6">لم تقم بإضافة أي فئات بعد</p>
-            <Button
-              className="bg-brand-blue hover:bg-brand-blue/90"
-              onClick={openAddDialog}
-            >
-              <Plus className="h-4 w-4 ml-2" />
-              إضافة أول فئة
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {/* Official Categories Section */}
-          {filteredOfficialCategories.length > 0 && (
-            <div className="mb-8">
-              <div className="flex items-center gap-3 mb-6">
-                <Tag className="h-6 w-6 text-brand-blue" />
-                <h2 className="text-2xl font-bold text-brand-blue">الفئات الرسمية</h2>
-                <Badge variant="secondary" className="text-sm">
-                  {filteredOfficialCategories.length} فئة
-                </Badge>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredOfficialCategories.map((category, index) => (
-                  <motion.div
-                    key={category._id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                      <div className="relative h-32 bg-gradient-to-br from-blue-50 to-blue-100">
-                        <img
-                          src={category.image}
-                          alt={category.name}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute top-3 left-3">
-                          <Badge variant={category.isActive ? "default" : "secondary"} className={category.isActive ? "bg-green-500" : "bg-gray-500"}>
-                            {category.isActive ? "نشطة" : "غير نشطة"}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <CardHeader>
-                        <CardTitle className="text-lg">{category.name}</CardTitle>
-                        <p className="text-muted-foreground text-sm line-clamp-2">
-                          {category.description || "لا يوجد وصف"}
-                        </p>
-                      </CardHeader>
-
-                      <CardContent>
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center space-x-2">
-                            <Label htmlFor={`status-${category._id}`} className="text-sm">
-                              {category.isActive ? "نشطة" : "غير نشطة"}
-                            </Label>
-                            <Switch
-                              id={`status-${category._id}`}
-                              checked={category.isActive}
-                              onCheckedChange={() => handleToggleStatus(category)}
-                            />
-                          </div>
-                          <Badge variant="outline" className="text-xs">
-                            {category.slug}
-                          </Badge>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="flex-1 bg-transparent" 
-                            onClick={() => openEditDialog(category)}
-                          >
-                            <Edit className="h-4 w-4 ml-1" />
-                            تحرير
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="text-red-500 hover:text-red-600 bg-transparent" 
-                            onClick={() => handleDeleteCategory(category._id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Legacy Categories Section */}
-          {filteredLegacyCategories.length > 0 && (
-            <div className="mb-8">
-              <div className="flex items-center gap-3 mb-6">
-                <Package className="h-6 w-6 text-orange-500" />
-                <h2 className="text-2xl font-bold text-orange-500">فئات من المنتجات</h2>
-                <Badge variant="secondary" className="text-sm">
-                  {filteredLegacyCategories.length} فئة
-                </Badge>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredLegacyCategories.map((category, index) => (
-                  <motion.div
-                    key={category.name}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card className="overflow-hidden hover:shadow-lg transition-shadow border-orange-200">
-                      <div className="relative h-32 bg-gradient-to-br from-orange-50 to-orange-100">
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Package className="h-12 w-12 text-orange-400" />
-                        </div>
-                        <div className="absolute top-3 left-3">
-                          <Badge variant="secondary" className="bg-orange-500">
-                            من المنتجات
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <CardHeader>
-                        <CardTitle className="text-lg">{category.name}</CardTitle>
-                        <p className="text-muted-foreground text-sm">
-                          {category.productCount} منتج
-                        </p>
-                      </CardHeader>
-
-                      <CardContent>
-                        <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="flex-1 bg-transparent border-orange-200 text-orange-600 hover:bg-orange-50" 
-                            onClick={() => handleConvertLegacyCategory(category)}
-                            disabled={saving}
-                          >
-                            <Plus className="h-4 w-4 ml-1" />
-                            {saving ? "جاري التحويل..." : "تحويل إلى رسمية"}
-                          </Button>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2 text-center">
-                          هذه الفئة مستخدمة في المنتجات ولكنها غير مسجلة في النظام الرسمي
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* No search results */}
-          {!hasSearchResults && searchTerm && (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">لا توجد نتائج</h3>
-                <p className="text-muted-foreground mb-6">لم نعثر على فئات تطابق بحثك</p>
+            <div className="flex flex-wrap gap-3 justify-center">
+              {categories.map((cat) => (
                 <Button
-                  variant="outline"
-                  onClick={() => setSearchTerm("")}
+                  key={cat}
+                  variant={selectedCategory === cat ? "default" : "outline"}
+                  className={`px-4 py-2 rounded-full transition-all duration-300 ${
+                    selectedCategory === cat
+                      ? "bg-primary text-primary-foreground shadow-lg"
+                      : "border border-gray-600 text-gray-300 hover:bg-gray-800 hover:border-gray-500"
+                  }`}
+                  onClick={() => setSelectedCategory(cat)}
                 >
-                  مسح البحث
+                  {cat}
                 </Button>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <Tag className="h-8 w-8 text-brand-blue mx-auto mb-2" />
-            <div className="text-2xl font-bold">{totalCategories}</div>
-            <div className="text-sm text-muted-foreground">إجمالي الفئات</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6 text-center">
-            <Eye className="h-8 w-8 text-green-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold">
-              {categories.filter(c => c.isActive).length}
+              ))}
             </div>
-            <div className="text-sm text-muted-foreground">فئات رسمية نشطة</div>
-          </CardContent>
-        </Card>
+            {selectedCategory !== "جميع الفئات" && (
+              <div className="text-center mt-4">
+                <p className="text-sm text-gray-400">
+                  عرض {filteredProducts.length} منتج في فئة "{selectedCategory}"
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
 
-        <Card>
-          <CardContent className="p-6 text-center">
-            <Package className="h-8 w-8 text-orange-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold">
-              {legacyCategories.length}
-            </div>
-            <div className="text-sm text-muted-foreground">فئات من المنتجات</div>
-          </CardContent>
-        </Card>
+        {/* ✅ Products Grid */}
+        <section className="py-12">
+          <div className="container mx-auto px-4">
+            {loading ? (
+              <div className="flex flex-col justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+                <p className="text-center text-lg">جاري تحميل المنتجات...</p>
+                <p className="text-sm text-gray-400 mt-2">يرجى الانتظار</p>
+              </div>
+            ) : error ? (
+              <div className="flex flex-col justify-center items-center h-64">
+                <div className="bg-red-900/20 border border-red-800 rounded-lg p-6 max-w-md text-center">
+                  <p className="text-red-400 text-lg mb-2">حدث خطأ</p>
+                  <p className="text-red-300">{error}</p>
+                  <Button 
+                    onClick={() => window.location.reload()} 
+                    variant="outline" 
+                    className="mt-4 border-red-700 text-red-300 hover:bg-red-900"
+                  >
+                    إعادة المحاولة
+                  </Button>
+                </div>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="flex flex-col justify-center items-center h-64 text-center">
+                <div className="bg-gray-800/50 rounded-lg p-8 max-w-md">
+                  <p className="text-2xl mb-2">📦</p>
+                  <h3 className="text-xl font-semibold mb-2">لا توجد منتجات</h3>
+                  <p className="text-gray-400 mb-4">
+                    {selectedCategory === "جميع الفئات" 
+                      ? "لم يتم العثور على أي منتجات حالياً." 
+                      : `لا توجد منتجات في فئة "${selectedCategory}".`}
+                  </p>
+                  {selectedCategory !== "جميع الفئات" && (
+                    <Button 
+                      onClick={() => setSelectedCategory("جميع الفئات")}
+                      variant="outline"
+                      className="border-gray-600"
+                    >
+                      عرض جميع المنتجات
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Products Count */}
+                <div className="mb-8 text-center">
+                  <p className="text-gray-400">
+                    عرض {filteredProducts.length} من أصل {safeProducts.length} منتج
+                    {selectedCategory !== "جميع الفئات" && ` في فئة "${selectedCategory}"`}
+                  </p>
+                </div>
 
-        <Card>
-          <CardContent className="p-6 text-center">
-            <EyeOff className="h-8 w-8 text-gray-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold">
-              {categories.filter(c => !c.isActive).length}
-            </div>
-            <div className="text-sm text-muted-foreground">فئات غير نشطة</div>
-          </CardContent>
-        </Card>
-      </div>
+                {/* Products Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {filteredProducts.map((product, index) => {
+                    const priceWithTax = (product.price * 1.15).toFixed(2)
+                    const productImage = getProductImage(product)
+                    
+                    return (
+                      <motion.div
+                        key={product._id || index}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: index * 0.1 }}
+                        whileHover={{ y: -5 }}
+                        className="h-full"
+                      >
+                        <Card className="h-full overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 group bg-gray-900/50 backdrop-blur-sm">
+                          <CardHeader className="p-0 relative">
+                            <div
+                              className="relative overflow-hidden cursor-pointer"
+                              onClick={() => viewProductDetails(product._id)}
+                            >
+                              <img
+                                src={productImage}
+                                alt={product.title}
+                                className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.svg"
+                                }}
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                              {product.featured && (
+                                <Badge className="absolute top-4 right-4 bg-yellow-600 text-white border-0">
+                                  مميز
+                                </Badge>
+                              )}
+                              <Badge 
+                                variant="secondary" 
+                                className="absolute bottom-4 right-4 bg-gray-800/90 text-gray-200 border-0"
+                              >
+                                {product.category}
+                              </Badge>
+                            </div>
+                          </CardHeader>
+
+                          <CardContent className="p-6 flex flex-col flex-grow">
+                            <h3
+                              className="font-bold text-lg mb-2 leading-tight cursor-pointer hover:text-brand-blue transition-colors duration-200 line-clamp-2"
+                              onClick={() => viewProductDetails(product._id)}
+                            >
+                              {product.title}
+                            </h3>
+                            <p className="text-gray-400 text-sm mb-4 leading-relaxed line-clamp-3 flex-grow">
+                              {product.description}
+                            </p>
+                            <div className="mt-auto space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-500 text-sm">السعر الأساسي:</span>
+                                <span className="text-gray-300">{product.price.toLocaleString()} ر.س</span>
+                              </div>
+                              <div className="flex justify-between items-center border-t border-gray-700 pt-2">
+                                <span className="text-gray-500 text-sm">السعر شامل الضريبة:</span>
+                                <span className="text-2xl font-bold text-primary">{priceWithTax} ر.س</span>
+                              </div>
+                            </div>
+                          </CardContent>
+
+                          <CardFooter className="p-6 pt-0 flex gap-2">
+                            <Button
+                              onClick={() => handleAddToCart(product)}
+                              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300"
+                            >
+                              أضف إلى السلة
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => viewProductDetails(product._id)}
+                              className="flex items-center gap-1 border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white transition-all duration-300"
+                            >
+                              <Eye className="h-4 w-4" />
+                              التفاصيل
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      </main>
+
+      <Footer />
     </div>
   )
 }
-

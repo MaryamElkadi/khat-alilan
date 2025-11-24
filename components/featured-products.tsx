@@ -1,4 +1,3 @@
-// components/featured-products.tsx
 "use client"
 
 import { useEffect, useState } from "react"
@@ -46,16 +45,19 @@ export function FeaturedProducts() {
         console.log("Products API response:", data)
 
         // Handle different response formats
+        let productsData: Product[] = []
         if (Array.isArray(data)) {
-          setProducts(data)
+          productsData = data
         } else if (data && Array.isArray(data.products)) {
-          setProducts(data.products)
+          productsData = data.products
         } else if (data && Array.isArray(data.data)) {
-          setProducts(data.data)
+          productsData = data.data
         } else {
           console.warn("Unexpected API response format:", data)
-          setProducts([])
+          productsData = []
         }
+
+        setProducts(productsData)
 
       } catch (error) {
         console.error("Error fetching products:", error)
@@ -78,6 +80,10 @@ export function FeaturedProducts() {
   const viewAllProducts = () => {
     router.push("/products")
   }
+
+  // Get only first 6 products for featured section
+  const featuredProducts = products.slice(0, 6)
+  const totalProductsCount = products.length
 
   // Enhanced loading state
   if (loading) {
@@ -133,8 +139,8 @@ export function FeaturedProducts() {
           </motion.div>
 
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            <span className="text-brand-blue">جميع</span>{" "}
-            <span className="text-brand-yellow">المنتجات</span>
+            <span className="text-brand-blue">المنتجات</span>{" "}
+            <span className="text-brand-yellow">المميزة</span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             اكتشف مجموعة منتجاتنا المتميزة المصممة لنجاحك
@@ -142,7 +148,7 @@ export function FeaturedProducts() {
         </motion.div>
 
         {/* Products Grid */}
-        {products.length === 0 ? (
+        {featuredProducts.length === 0 ? (
           <div className="text-center py-12">
             <div className="bg-muted/50 rounded-lg p-8 max-w-md mx-auto">
               <ShoppingCart className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
@@ -158,7 +164,7 @@ export function FeaturedProducts() {
             viewport={{ once: true }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            {products.map((product, index) => (
+            {featuredProducts.map((product, index) => (
               <motion.div
                 key={product._id || product.id}
                 initial={{ opacity: 0, y: 30 }}
@@ -233,8 +239,8 @@ export function FeaturedProducts() {
           </motion.div>
         )}
 
-        {/* View All Button - Only show if there are products */}
-        {products.length > 0 && (
+        {/* View All Button - Only show if there are more than 6 products */}
+        {totalProductsCount > 6 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -248,7 +254,7 @@ export function FeaturedProducts() {
               className="border-brand-blue text-brand-blue hover:bg-brand-blue hover:text-white text-lg px-8"
               onClick={viewAllProducts}
             >
-              عرض جميع المنتجات ({products.length})
+              عرض جميع المنتجات ({totalProductsCount})
             </Button>
           </motion.div>
         )}

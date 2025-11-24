@@ -51,7 +51,7 @@ export default function HomePage() {
         
         <main>
           <EnhancedHero />
-          <WorksSection /> {/* Add this line */}
+          <WorksSection /> 
           <FeaturedServices />
           <FeaturedProducts />
           <AboutSection />
