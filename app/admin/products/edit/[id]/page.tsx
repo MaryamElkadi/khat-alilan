@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { ArrowRight, Save, X, Plus } from "lucide-react"
+import { ArrowRight, Save, X, Plus, Trash2, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface Product {
   _id: string
@@ -47,6 +48,7 @@ export default function EditProductPage() {
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [allCategories, setAllCategories] = useState<string[]>([])
   
@@ -63,10 +65,13 @@ export default function EditProductPage() {
     materialOptions: [] as any[]
   })
 
+  const [images, setImages] = useState<string[]>([])
+  const [newImages, setNewImages] = useState<File[]>([])
+
   // Get the ID from params when component mounts
   useEffect(() => {
-    if (params) {
-      const id = (params as any).id
+    if (params && params.id) {
+      const id = params.id as string
       setProductId(id)
       console.log("🆔 Product ID from params:", id)
     }
@@ -100,7 +105,6 @@ export default function EditProductPage() {
       try {
         console.log("🔄 Fetching ALL products to extract categories...")
         
-        // Fetch with a very high limit to get all products
         const res = await fetch('/api/products?limit=1000')
         console.log("📡 Products response status:", res.status)
         
@@ -193,6 +197,16 @@ export default function EditProductPage() {
             sideOptions: data.product.sideOptions || [],
             materialOptions: data.product.materialOptions || []
           })
+          
+          // Set images from product data
+          if (data.product.image) {
+            if (Array.isArray(data.product.image)) {
+              setImages(data.product.image.filter((img: string) => img && img.trim() !== ""))
+            } else {
+              setImages([data.product.image].filter((img: string) => img && img.trim() !== ""))
+            }
+          }
+          
           console.log("✅ Product data loaded successfully")
         } else {
           console.error("Product not found in response")
@@ -213,6 +227,89 @@ export default function EditProductPage() {
     }
   }, [productId, router])
 
+  // Handle image upload
+  const handleImageUpload = async (files: FileList) => {
+    const uploadedImages: string[] = []
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert(`الملف ${file.name} ليس صورة`)
+        continue
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`حجم الصورة ${file.name} كبير جداً (الحد الأقصى 5MB)`)
+        continue
+      }
+      
+      setNewImages(prev => [...prev, file])
+      
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file)
+      uploadedImages.push(previewUrl)
+    }
+    
+    setImages(prev => [...prev, ...uploadedImages])
+  }
+
+  // Remove image
+  const removeImage = (index: number) => {
+    // Check if it's a new image (has blob URL)
+    const imageUrl = images[index]
+    if (imageUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(imageUrl)
+    }
+    
+    setImages(prev => prev.filter((_, i) => i !== index))
+    
+    // Also remove from newImages if it was a newly uploaded file
+    if (imageUrl.startsWith('blob:')) {
+      setNewImages(prev => prev.filter((_, i) => i !== index - (images.length - newImages.length)))
+    }
+  }
+
+  // Upload images to server and get URLs
+  const uploadImagesToServer = async (): Promise<string[]> => {
+    if (newImages.length === 0) return images.filter(img => !img.startsWith('blob:'))
+
+    setUploading(true)
+    const uploadedUrls: string[] = []
+
+    try {
+      for (const file of newImages) {
+        const formData = new FormData()
+        formData.append('file', file)
+        
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to upload image: ${file.name}`)
+        }
+
+        const data = await response.json()
+        if (data.url) {
+          uploadedUrls.push(data.url)
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading images:', error)
+      throw new Error('فشل في رفع الصور')
+    } finally {
+      setUploading(false)
+    }
+
+    // Combine existing images (that are not blob URLs) with new uploaded URLs
+    const existingImages = images.filter(img => !img.startsWith('blob:'))
+    return [...existingImages, ...uploadedUrls]
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -226,12 +323,28 @@ export default function EditProductPage() {
     try {
       console.log("🔄 Updating product with data:", formData)
       
+      // Upload new images first
+      let finalImageUrls: string[] = []
+      if (newImages.length > 0) {
+        finalImageUrls = await uploadImagesToServer()
+      } else {
+        finalImageUrls = images
+      }
+
+      // Prepare data for API
+      const updateData = {
+        ...formData,
+        image: finalImageUrls.length === 1 ? finalImageUrls[0] : finalImageUrls
+      }
+
+      console.log("📤 Sending update with images:", updateData)
+      
       const res = await fetch(`/api/products/${productId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(updateData),
       })
 
       const result = await res.json()
@@ -425,7 +538,7 @@ export default function EditProductPage() {
                               فئات من المنتجات ({legacyCategories.length})
                             </div>
                             {legacyCategories.map((category, index) => (
-                              <SelectItem key={`${index}`} value={category}>
+                              <SelectItem key={`legacy-${index}`} value={category}>
                                 {category}
                               </SelectItem>
                             ))}
@@ -452,6 +565,79 @@ export default function EditProductPage() {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Image Management */}
+            <Card>
+              <CardHeader>
+                <CardTitle>إدارة الصور</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Alert>
+                  <AlertDescription className="text-sm">
+                    يمكنك رفع عدة صور للمنتج. الصور المدعومة: JPG, PNG, WebP. الحد الأقصى للحجم: 5MB لكل صورة.
+                  </AlertDescription>
+                </Alert>
+
+                {/* Image Upload */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <input
+                    type="file"
+                    id="image-upload"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) => e.target.files && handleImageUpload(e.target.files)}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="image-upload"
+                    className="cursor-pointer flex flex-col items-center justify-center space-y-2"
+                  >
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm font-medium">انقر لرفع الصور</span>
+                    <span className="text-xs text-muted-foreground">
+                      أو اسحب وأفلت الصور هنا
+                    </span>
+                  </label>
+                </div>
+
+                {/* Image Gallery */}
+                {images.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                    {images.map((img, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={img || "/placeholder.svg"}
+                          alt={`Product image ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => removeImage(index)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <div className="absolute top-1 left-1">
+                          <Badge variant="secondary" className="text-xs">
+                            {index + 1}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {images.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    لا توجد صور للمنتج
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -598,36 +784,6 @@ export default function EditProductPage() {
               </CardContent>
             </Card>
 
-            {/* Current Images */}
-            <Card>
-              <CardHeader>
-                <CardTitle>الصور الحالية</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-2">
-                  {Array.isArray(product.image) ? (
-                    product.image.map((img, index) => (
-                      <img
-                        key={index}
-                        src={img || "/placeholder.svg"}
-                        alt={`Product image ${index + 1}`}
-                        className="w-full h-20 object-cover rounded border"
-                      />
-                    ))
-                  ) : (
-                    <img
-                      src={product.image || "/placeholder.svg"}
-                      alt="Product image"
-                      className="w-full h-20 object-cover rounded border"
-                    />
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground mt-2 text-center">
-                  {Array.isArray(product.image) ? product.image.length : 1} صورة
-                </p>
-              </CardContent>
-            </Card>
-
             {/* Actions */}
             <Card>
               <CardHeader>
@@ -637,10 +793,10 @@ export default function EditProductPage() {
                 <Button 
                   type="submit" 
                   className="w-full bg-brand-blue hover:bg-brand-blue/90"
-                  disabled={saving}
+                  disabled={saving || uploading}
                 >
                   <Save className="h-4 w-4 ml-2" />
-                  {saving ? "جاري الحفظ..." : "حفظ التغييرات"}
+                  {saving ? "جاري الحفظ..." : uploading ? "جاري رفع الصور..." : "حفظ التغييرات"}
                 </Button>
                 
                 <Button 
@@ -664,6 +820,18 @@ export default function EditProductPage() {
                   <span>معرف المنتج:</span>
                   <Badge variant="secondary" className="font-mono text-xs">
                     {product._id}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>عدد الصور:</span>
+                  <Badge variant="outline">
+                    {images.length} صورة
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>الصور الجديدة:</span>
+                  <Badge variant={newImages.length > 0 ? "default" : "outline"}>
+                    {newImages.length} صورة
                   </Badge>
                 </div>
                 <div className="flex justify-between">
